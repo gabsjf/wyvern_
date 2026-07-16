@@ -26,6 +26,7 @@ export class CombateTracker implements OnInit, OnChanges {
   combateAtivo: any = null; 
   participantesCombate: any[] = [];
   turnDeathSaveModified: boolean = false;
+  isProcessingTurn: boolean = false;
 
   // Quick NPC Form
   novoNpc: any = {
@@ -238,7 +239,17 @@ export class CombateTracker implements OnInit, OnChanges {
       this.cdr.detectChanges();
       
       if (this.combateAtivo.combateId) {
-         this.combateService.nextTurn(this.combateAtivo.combateId).subscribe();
+         this.isProcessingTurn = true;
+         this.combateService.nextTurn(this.combateAtivo.combateId).subscribe({
+           next: () => {
+             this.isProcessingTurn = false;
+             this.cdr.detectChanges();
+           },
+           error: (err) => {
+             this.isProcessingTurn = false;
+             console.error(err);
+           }
+         });
       }
     }
   }

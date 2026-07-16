@@ -2,7 +2,6 @@ import { Component, signal, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
 import { Sidebar } from './core/layout/sidebar/sidebar';
 import { AuthService } from './core/services/auth.service';
-import { LoadingService } from './core/services/loading.service';
 import { CommonModule } from '@angular/common';
 
 @Component({
@@ -14,5 +13,4 @@ import { CommonModule } from '@angular/common';
 export class App {
   protected readonly title = signal('wyvern-front');
   authService = inject(AuthService);
-  loadingService = inject(LoadingService);
 }

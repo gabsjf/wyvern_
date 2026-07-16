@@ -105,7 +105,9 @@
       </div>
       <div style="display: flex; gap: 1rem;">
         <button class="btn-secondary" (click)="encerrarCombate()">Encerrar Combate</button>
-        <button class="btn-primary" (click)="proximoTurno()">Próximo Turno ➔</button>
+        <button class="btn-primary" [disabled]="isProcessingTurn" (click)="proximoTurno()">
+          {{ isProcessingTurn ? 'Aguarde...' : 'Próximo Turno ➔' }}
+        </button>
       </div>
     </div>
 
