@@ -1,3 +1,6 @@
+<div class="global-loading-overlay" *ngIf="loadingService.isLoading()">
+  <div class="spinner"></div>
+</div>
 <div class="app-container" [class.no-sidebar]="!authService.isLoggedIn()">
   <app-sidebar *ngIf="authService.isLoggedIn()"></app-sidebar>
   <main class="main-content">
