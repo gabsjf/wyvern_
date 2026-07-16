@@ -41,8 +41,8 @@
       </div>
 
       <div style="display: flex; justify-content: flex-end; margin-top: var(--spacing-lg);">
-        <button type="submit" class="btn-primary" [disabled]="!sessaoForm.form.valid || sessao.campanhaId === 0">
-          {{ isEditMode ? 'Salvar Alterações' : 'Registrar Sessão' }}
+        <button type="submit" class="btn-primary" [disabled]="!sessaoForm.form.valid || sessao.campanhaId === 0 || isSaving">
+          {{ isSaving ? 'Salvando...' : (isEditMode ? 'Salvar Alterações' : 'Registrar Sessão') }}
         </button>
       </div>
     </form>

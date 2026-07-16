@@ -22,6 +22,7 @@ export class SessaoCreate implements OnInit {
   campanhas: Campaign[] = [];
   allSessoes: Sessao[] = [];
   isEditMode = false;
+  isSaving = false;
 
   sessao: Sessao = {
     numeroSessao: 1,
@@ -72,17 +73,31 @@ export class SessaoCreate implements OnInit {
   }
 
   save() {
+    if (this.isSaving) return;
+    this.isSaving = true;
     this.processDataAgendada();
 
     if (this.isEditMode && this.sessao.sessaoId) {
       this.sessaoService.update(this.sessao.sessaoId, this.sessao).subscribe({
-        next: () => this.router.navigate(['/sessoes', this.sessao.sessaoId]),
-        error: (err) => console.error('Erro ao atualizar sessão', err)
+        next: () => {
+          this.isSaving = false;
+          this.router.navigate(['/sessoes', this.sessao.sessaoId]);
+        },
+        error: (err) => {
+          this.isSaving = false;
+          console.error('Erro ao atualizar sessão', err);
+        }
       });
     } else {
       this.sessaoService.create(this.sessao).subscribe({
-        next: () => this.router.navigate(['/sessoes']),
-        error: (err) => console.error('Erro ao criar sessão', err)
+        next: () => {
+          this.isSaving = false;
+          this.router.navigate(['/sessoes']);
+        },
+        error: (err) => {
+          this.isSaving = false;
+          console.error('Erro ao criar sessão', err);
+        }
       });
     }
   }
