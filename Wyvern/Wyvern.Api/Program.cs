@@ -75,6 +75,12 @@ builder.Services.AddDbContext<WyvernDbContext>(options =>
 builder.Services.AddScoped<CampanhaRepository>();
 var app = builder.Build();
 
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<WyvernDbContext>();
+    db.Database.Migrate();
+}
+
 if (app.Environment.IsDevelopment())
 {
     app.MapOpenApi();
