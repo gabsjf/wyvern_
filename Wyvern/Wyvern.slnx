@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="Wyvern.Api/Wyvern.Api.csproj" Id="4afc0b8f-a410-4a66-a4aa-035efd17056d" />
+  <Project Path="Wyvern.Application/Wyvern.Application.csproj" />
+  <Project Path="Wyvern.Domain/Wyvern.Domain.csproj" />
+  <Project Path="Wyvern.Infrastructure/Wyvern.Infrastructure.csproj" />
+</Solution>

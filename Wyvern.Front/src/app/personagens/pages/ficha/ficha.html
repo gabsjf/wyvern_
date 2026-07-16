@@ -1,0 +1,338 @@
+<div class="ficha-container animate-fade-in">
+  <aside class="ficha-sidebar glass-panel">
+    <div class="character-portrait-section">
+
+      <h2 class="text-accent character-name">{{ personagem?.nome || 'Carregando...' }}</h2>
+      <p class="text-secondary character-class">{{ personagem?.personagemPlayer?.classe || 'Sem Classe' }} Nv. {{ personagem?.personagemPlayer?.nivel || 1 }}</p>
+    </div>
+    
+    <nav class="ficha-nav">
+      <button class="nav-btn" [class.active]="activeTab === 'atributos'" (click)="setTab('atributos')">Atributos e Perícias</button>
+      <button class="nav-btn" [class.active]="activeTab === 'combate'" (click)="setTab('combate')">Combate</button>
+      <button class="nav-btn" [class.active]="activeTab === 'magias'" (click)="setTab('magias')">Magias</button>
+      <button class="nav-btn" [class.active]="activeTab === 'inventario'" (click)="setTab('inventario')">Inventário</button>
+      <button class="nav-btn" [class.active]="activeTab === 'caracteristicas'" (click)="setTab('caracteristicas')">Características</button>
+    </nav>
+    
+
+  </aside>
+
+  <main class="ficha-content">
+    <app-ficha-header [personagem]="personagem"></app-ficha-header>
+    
+    <div class="ficha-main-area">
+      <!-- ABA: ATRIBUTOS E PERÍCIAS -->
+      <ng-container *ngIf="activeTab === 'atributos'">
+        <app-ficha-atributos [personagem]="personagem"></app-ficha-atributos>
+        
+        <div class="secondary-info-grid">
+          <div class="info-card glass-panel">
+            <h3 class="text-accent title-glow">Sentidos</h3>
+            <div class="info-row"><span>Percepção Passiva</span> <span class="val">11</span></div>
+            <div class="info-row mt-2"><span class="text-secondary">Visão no Escuro 18m</span></div>
+          </div>
+          
+          <div class="info-card glass-panel">
+            <h3 class="text-accent title-glow">Defesas e Condições</h3>
+            <div class="info-text">
+               <strong>Resistências:</strong> Nenhuma<br><br>
+               <strong>Condições Ativas:</strong> Nenhuma
+            </div>
+          </div>
+          
+          <div class="info-card glass-panel">
+            <h3 class="text-accent title-glow">Proficiências</h3>
+            <div class="info-text">
+               <strong>Armaduras:</strong> {{ personagem?.personagemDetalhes?.proficienciaArmaduras || 'Nenhuma' }}<br>
+               <strong>Armas:</strong> {{ personagem?.personagemDetalhes?.proficienciaArmas || 'Nenhuma' }}<br>
+               <strong>Idiomas:</strong> {{ personagem?.personagemDetalhes?.idiomas || 'Comum' }}
+            </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ABA: COMBATE -->
+      <ng-container *ngIf="activeTab === 'combate'">
+        <div class="weapons-panel glass-panel">
+          <div class="flex-between" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; padding-bottom: 10px;">
+            <h3 class="panel-title text-accent title-glow" style="border: none; margin: 0; padding: 0;">Ataques e Armas</h3>
+            <button class="btn-primary" (click)="showAtaqueModal = true">+ Adicionar</button>
+          </div>
+          <table class="premium-table">
+            <thead>
+              <tr>
+                <th>Ataque</th>
+                <th>Alcance</th>
+                <th>Acerto</th>
+                <th>Dano / Tipo</th>
+                <th>Propriedades</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let ataque of personagem?.personagemAtaques">
+                <td><strong>{{ ataque.nome }}</strong></td>
+                <td>{{ ataque.alcance || '--' }}</td>
+                <td><span class="badge-acerto">{{ getBonusAtaque(ataque) }}</span></td>
+                <td>{{ getDanoAtaque(ataque) }} {{ ataque.tipoDano }}</td>
+                <td class="text-secondary">{{ ataque.propriedades || '--' }}</td>
+                <td><button class="btn-icon-danger" (click)="removerAtaque(ataque.personagemAtaqueId)" title="Remover">&times;</button></td>
+              </tr>
+              <tr *ngIf="!personagem?.personagemAtaques || personagem.personagemAtaques.length === 0">
+                <td colspan="6" style="text-align: center; color: var(--text-secondary); padding: 20px;">Nenhum ataque cadastrado.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </ng-container>
+      <!-- ABA: MAGIAS -->
+      <ng-container *ngIf="activeTab === 'magias'">
+        <div class="magias-grid">
+          
+          <div class="magic-stats-panel glass-panel" *ngIf="personagem?.personagemConjuracao?.atributoConjuracao && personagem.personagemConjuracao.atributoConjuracao !== 'Nenhum'" style="margin-bottom: var(--spacing-lg);">
+            <div style="display: flex; gap: 2rem; justify-content: center; text-align: center;">
+              <div>
+                <div class="text-secondary" style="font-size: 0.9rem;">Atributo Chave</div>
+                <div class="text-primary" style="font-size: 1.5rem; font-weight: 600;">{{ personagem.personagemConjuracao.atributoConjuracao }}</div>
+              </div>
+              <div>
+                <div class="text-secondary" style="font-size: 0.9rem;">CD Magia</div>
+                <div class="text-accent title-glow" style="font-size: 2rem; font-weight: 800; line-height: 1.2;">{{ getCdMagia() }}</div>
+              </div>
+              <div>
+                <div class="text-secondary" style="font-size: 0.9rem;">Bônus de Ataque</div>
+                <div class="text-accent title-glow" style="font-size: 2rem; font-weight: 800; line-height: 1.2;">{{ getBonusMagia() }}</div>
+              </div>
+            </div>
+
+            <!-- Spell Slots -->
+            <div style="margin-top: 1.5rem; display: flex; flex-wrap: wrap; gap: 10px; justify-content: center;">
+              <ng-container *ngFor="let nivel of [1,2,3,4,5,6,7,8,9]">
+                <div class="slot-box" *ngIf="personagem.personagemConjuracao['slotsNivel' + nivel + 'Max'] > 0" style="background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-color); text-align: center;">
+                  <div style="font-size: 0.8rem; color: var(--text-secondary);">Círculo {{ nivel }}</div>
+                  <div style="font-size: 1.2rem; font-weight: 600;">{{ getSlotAtual(nivel) }} / {{ personagem.personagemConjuracao['slotsNivel' + nivel + 'Max'] }}</div>
+                </div>
+              </ng-container>
+            </div>
+          </div>
+
+          <div class="spell-panel glass-panel">
+             <div class="spell-header flex-between" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; padding-bottom: 10px;">
+                <h3 class="panel-title text-accent title-glow" style="border: none; margin: 0; padding: 0;">Magias Conhecidas</h3>
+                <button class="btn-primary" (click)="showMagiaModal = true">+ Adicionar</button>
+             </div>
+             <div class="spell-list">
+                <div class="spell-card clickable-card" *ngFor="let pMagia of personagem?.personagemMagias" (click)="abrirDetalhes(pMagia.nome, 'Círculo ' + (pMagia.nivel || 0) + ' - ' + pMagia.escola, pMagia.descricao || '')">
+                   <div style="display: flex; justify-content: space-between;">
+                     <div class="spell-name">{{ pMagia.nome }}</div>
+                     <button class="btn-icon-danger" (click)="removerMagia(pMagia.personagemMagiaId); $event.stopPropagation()" title="Remover">&times;</button>
+                   </div>
+                   <div class="spell-meta">
+                     Círculo {{ pMagia.nivel || 0 }} - {{ pMagia.escola }}
+                     <span *ngIf="pMagia.verbal || pMagia.somatico || pMagia.material">
+                        ({{ pMagia.verbal ? 'V' : '' }}{{ pMagia.somatico ? 'S' : '' }}{{ pMagia.material ? 'M' : '' }})
+                     </span>
+                   </div>
+                </div>
+                <div *ngIf="!personagem?.personagemMagias || personagem.personagemMagias.length === 0" style="color: var(--text-secondary); padding: 10px;">
+                   Nenhuma magia conhecida.
+                </div>
+             </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ABA: INVENTÁRIO -->
+      <ng-container *ngIf="activeTab === 'inventario'">
+        <div class="inventario-layout">
+          <div class="wealth-panel glass-panel">
+            <div class="coin-box pc"><span class="val">{{ personagem?.personagemDinheiro?.pc || 0 }}</span><span class="lbl">PC</span></div>
+            <div class="coin-box pp"><span class="val">{{ personagem?.personagemDinheiro?.pp || 0 }}</span><span class="lbl">PP</span></div>
+            <div class="coin-box pe"><span class="val">{{ personagem?.personagemDinheiro?.pe || 0 }}</span><span class="lbl">PE</span></div>
+            <div class="coin-box po"><span class="val">{{ personagem?.personagemDinheiro?.po || 0 }}</span><span class="lbl">PO</span></div>
+            <div class="coin-box pl"><span class="val">{{ personagem?.personagemDinheiro?.pl || 0 }}</span><span class="lbl">PL</span></div>
+          </div>
+          
+          <div class="items-panel glass-panel">
+             <div class="flex-between" style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border-color); margin-bottom: 15px; padding-bottom: 10px;">
+               <h3 class="panel-title text-accent title-glow" style="border: none; margin: 0; padding: 0;">Equipamentos</h3>
+               <button class="btn-primary" (click)="showItemModal = true">+ Adicionar</button>
+             </div>
+              <div class="spell-list" style="margin-top: 15px;">
+                 <div class="spell-card clickable-card" *ngFor="let pItem of personagem?.personagemItens" (click)="abrirDetalhes(pItem.nome, (pItem.tipoItem + (pItem.raridade ? ' - ' + pItem.raridade : '')), pItem.descricao || '')">
+                   <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                     <div class="spell-name">{{ pItem.nome }}</div>
+                     <button class="btn-icon-danger" (click)="removerItem(pItem.personagemItemId); $event.stopPropagation()" title="Remover">&times;</button>
+                   </div>
+                   <div class="spell-meta" *ngIf="pItem.tipoItem || pItem.raridade">
+                     {{ pItem.tipoItem }}<span *ngIf="pItem.tipoItem && pItem.raridade"> - </span>{{ pItem.raridade }}
+                   </div>
+                 </div>
+                 <div *ngIf="!personagem?.personagemItens || personagem.personagemItens.length === 0" style="color: var(--text-secondary); padding: 10px;">
+                   Nenhum item no inventário.
+                 </div>
+              </div>
+          </div>
+        </div>
+      </ng-container>
+
+      <!-- ABA: CARACTERÍSTICAS E LORE -->
+      <ng-container *ngIf="activeTab === 'caracteristicas'">
+        <div class="features-layout">
+          <div class="feature-card glass-panel">
+            <div class="feature-header">
+               <h4 class="text-accent">História e Personalidade</h4>
+            </div>
+            <p class="feature-desc" style="white-space: pre-wrap; color: var(--text-secondary);">{{ personagem?.personagemDetalhes?.historiaPersonalidade || 'Não preenchido.' }}</p>
+          </div>
+
+          <div class="feature-card glass-panel">
+            <div class="feature-header">
+               <h4 class="text-accent">Aparência</h4>
+            </div>
+            <p class="feature-desc" style="white-space: pre-wrap; color: var(--text-secondary);">{{ personagem?.personagemDetalhes?.aparencia || 'Não preenchido.' }}</p>
+          </div>
+          
+          <div class="feature-card glass-panel">
+            <div class="feature-header">
+               <h4 class="text-accent">Características de Classe</h4>
+            </div>
+            <p class="feature-desc" style="white-space: pre-wrap; color: var(--text-secondary);">{{ personagem?.personagemDetalhes?.caracteristicasClasse || 'Não preenchido.' }}</p>
+          </div>
+
+          <div class="feature-card glass-panel">
+            <div class="feature-header">
+               <h4 class="text-accent">Traços de Espécie</h4>
+            </div>
+            <p class="feature-desc" style="white-space: pre-wrap; color: var(--text-secondary);">{{ personagem?.personagemDetalhes?.tracosEspecie || 'Não preenchido.' }}</p>
+          </div>
+
+          <div class="feature-card glass-panel">
+            <div class="feature-header">
+               <h4 class="text-accent">Talentos</h4>
+            </div>
+            <p class="feature-desc" style="white-space: pre-wrap; color: var(--text-secondary);">{{ personagem?.personagemDetalhes?.talentos || 'Não preenchido.' }}</p>
+          </div>
+        </div>
+      </ng-container>
+    </div>
+  </main>
+</div>
+
+<!-- Modais -->
+<!-- Modal de Item -->
+<div class="modal-overlay" *ngIf="showItemModal">
+  <div class="modal-content">
+    <h3>Adicionar Item</h3>
+    <div class="form-group">
+      <label>Nome do Item</label>
+      <input type="text" [(ngModel)]="novoItem.nome" placeholder="Ex: Poção de Cura">
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <div class="form-group" style="flex: 1;">
+        <label>Tipo de Item</label>
+        <input type="text" [(ngModel)]="novoItem.tipoItem" placeholder="Ex: Consumível">
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label>Raridade</label>
+        <input type="text" [(ngModel)]="novoItem.raridade" placeholder="Ex: Comum">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Descrição</label>
+      <textarea [(ngModel)]="novoItem.descricao" rows="3" placeholder="O que este item faz..."></textarea>
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" (click)="showItemModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="adicionarItem()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Detalhes -->
+<div class="modal-overlay" *ngIf="showDetalhesModal" (click)="showDetalhesModal = false">
+  <div class="modal-content" (click)="$event.stopPropagation()">
+    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px;">
+      <h3 style="margin: 0; color: var(--text-primary);">{{ detalhes.titulo }}</h3>
+      <button class="btn-icon-danger" (click)="showDetalhesModal = false" style="margin-top: -5px;">&times;</button>
+    </div>
+    <div class="text-secondary" style="margin-bottom: 15px; font-weight: 500;">{{ detalhes.subtitulo }}</div>
+    <p style="white-space: pre-wrap; line-height: 1.5; color: var(--text-secondary);">{{ detalhes.descricao }}</p>
+  </div>
+</div>
+
+<!-- Modal de Magia -->
+<div class="modal-overlay" *ngIf="showMagiaModal">
+  <div class="modal-content">
+    <h3>Adicionar Magia</h3>
+    <div class="form-group">
+      <label>Nome da Magia</label>
+      <input type="text" [(ngModel)]="novaMagia.nome" placeholder="Ex: Bola de Fogo">
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <div class="form-group" style="flex: 1;">
+        <label>Círculo (0 a 9)</label>
+        <input type="number" [(ngModel)]="novaMagia.nivel" min="0" max="9">
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label>Escola</label>
+        <input type="text" [(ngModel)]="novaMagia.escola" placeholder="Ex: Evocação">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Componentes</label>
+      <div style="display: flex; gap: 15px; margin-top: 5px;">
+        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" [(ngModel)]="novaMagia.verbal"> Verbal (V)</label>
+        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" [(ngModel)]="novaMagia.somatico"> Somático (S)</label>
+        <label style="display: flex; align-items: center; gap: 5px;"><input type="checkbox" [(ngModel)]="novaMagia.material"> Material (M)</label>
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Descrição</label>
+      <input type="text" [(ngModel)]="novaMagia.descricao" placeholder="O que a magia faz...">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" (click)="showMagiaModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="adicionarMagia()">Salvar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal de Ataque -->
+<div class="modal-overlay" *ngIf="showAtaqueModal">
+  <div class="modal-content">
+    <h3>Adicionar Ataque</h3>
+    <div class="form-group">
+      <label>Nome do Ataque</label>
+      <input type="text" [(ngModel)]="novoAtaque.nome" placeholder="Ex: Espada Longa">
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <div class="form-group" style="flex: 1;">
+        <label>Bônus de Acerto</label>
+        <input type="number" [(ngModel)]="novoAtaque.bonusAcerto" placeholder="Ex: 5">
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label>Dano</label>
+        <input type="text" [(ngModel)]="novoAtaque.dano" placeholder="Ex: 1d8+3">
+      </div>
+    </div>
+    <div style="display: flex; gap: 10px;">
+      <div class="form-group" style="flex: 1;">
+        <label>Tipo de Dano</label>
+        <input type="text" [(ngModel)]="novoAtaque.tipoDano" placeholder="Ex: Cortante">
+      </div>
+      <div class="form-group" style="flex: 1;">
+        <label>Alcance</label>
+        <input type="text" [(ngModel)]="novoAtaque.alcance" placeholder="Ex: 1,5m">
+      </div>
+    </div>
+    <div class="form-group">
+      <label>Propriedades</label>
+      <input type="text" [(ngModel)]="novoAtaque.propriedades" placeholder="Ex: Versátil">
+    </div>
+    <div class="modal-actions">
+      <button class="btn-secondary" (click)="showAtaqueModal = false">Cancelar</button>
+      <button class="btn-primary" (click)="salvarAtaque()">Salvar</button>
+    </div>
+  </div>
+</div>

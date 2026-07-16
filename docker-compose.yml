@@ -1,0 +1,30 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./Wyvern
+      dockerfile: Dockerfile
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ASPNETCORE_URLS=http://+:8080
+      - ConnectionStrings__DefaultConnection=Data Source=/app/data/wyvern.db
+      - Jwt__Key=ThisIsAVerySecretKeyForJwtAuthenticationWhichShouldBeLongEnoughAndChangedInProd
+      - Jwt__Issuer=WyvernApi
+      - Jwt__Audience=WyvernFront
+    ports:
+      - "8080:8080"
+    volumes:
+      - wyvern_db:/app/data
+
+  frontend:
+    build:
+      context: ./Wyvern.Front
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+volumes:
+  wyvern_db:
