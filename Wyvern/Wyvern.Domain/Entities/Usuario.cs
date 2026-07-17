@@ -21,6 +21,8 @@ namespace Wyvern.Domain.Entities
         public DateTime CriadoEm { get; set; }
         public List<Campanha>? Campanhas { get; set; }
         public bool Ativo { get; set; } = true;
+        [Required]
+        public string Papel { get; set; } = "Jogador";
 
 
     }

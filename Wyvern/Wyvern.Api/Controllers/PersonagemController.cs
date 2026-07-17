@@ -4,6 +4,7 @@ using Wyvern.Application.DTOs.Personagem;
 using Wyvern.Domain.Entities;
 using Wyvern.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
+using Wyvern.Domain.Interfaces;
 
 namespace Wyvern.Api.Controllers
 {
@@ -14,10 +15,13 @@ namespace Wyvern.Api.Controllers
     {
         private readonly IUnitOfWork _uof;
         private readonly IMapper _mapper;
-        public PersonagemController (IUnitOfWork uof, IMapper mapper)
+        private readonly ICurrentUserService _currentUser;
+
+        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser)
         {
             _uof = uof;
             _mapper = mapper;
+            _currentUser = currentUser;
         }
 
         [HttpGet]
@@ -57,6 +61,16 @@ namespace Wyvern.Api.Controllers
             var personagem = _mapper.Map<Personagem>(personagemDto);
             personagem.CriadoEm = DateTime.Now;
             personagem.Ativo = true;
+
+            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(personagemDto.CampanhaId);
+            bool isMestre = campanha != null && campanha.MestreId == _currentUser.UserId;
+
+            if (!isMestre)
+            {
+                // Jogadores só podem criar tipo 1 (Jogador) e sem bloco NPC
+                personagem.TipoId = 1;
+                personagemDto.PersonagemNpc = null;
+            }
 
             if (personagemDto.PericiasIds != null && personagemDto.PericiasIds.Any())
             {

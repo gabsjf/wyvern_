@@ -28,6 +28,10 @@ namespace Wyvern.Domain.Entities
         
         public bool IsPublica { get; set; } = false;
         
+        public int? CriadoPorId { get; set; }
+        [JsonIgnore]
+        public Usuario? CriadoPor { get; set; }
+        
         public DateTime CriadoEm { get; set; } = DateTime.Now;
     }
 }

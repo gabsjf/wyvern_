@@ -5,8 +5,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Wyvern.Application.DTOs.Combate;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.SignalR;
+using Wyvern.Api.Hubs;
+using Wyvern.Infrastructure.Repositories;
 
 namespace Wyvern.Api.Controllers
 {
@@ -16,10 +18,12 @@ namespace Wyvern.Api.Controllers
     public class CombateController : ControllerBase
     {
         private readonly IUnitOfWork _uof;
+        private readonly IHubContext<CombatHub> _hubContext;
 
-        public CombateController(IUnitOfWork uof)
+        public CombateController(IUnitOfWork uof, IHubContext<CombatHub> hubContext)
         {
             _uof = uof;
+            _hubContext = hubContext;
         }
 
         [HttpGet("{id}/participantes")]
@@ -119,13 +123,21 @@ namespace Wyvern.Api.Controllers
             };
             
             await _uof.CombateRepository.CreateCombateAsync(combate);
+            await _hubContext.Clients.Group($"Combate_{combate.CombateId}").SendAsync("ReceiveCombatUpdate");
+            await _hubContext.Clients.Group($"Sessao_{sessaoId}").SendAsync("ReceiveCombatUpdate");
             return Ok(combate);
         }
 
         [HttpPost("{id}/end")]
         public async Task<IActionResult> EndCombate(int id)
         {
+            var combate = await _uof.CombateRepository.GetCombateAsync(id);
             await _uof.CombateRepository.DeleteCombateAsync(id);
+            await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
+            if (combate != null)
+            {
+                await _hubContext.Clients.Group($"Sessao_{combate.SessaoId}").SendAsync("ReceiveCombatUpdate");
+            }
             return NoContent();
         }
 
@@ -153,6 +165,7 @@ namespace Wyvern.Api.Controllers
                 } while (combate.TurnoAtualIndex != originalIndex);
 
                 await _uof.CombateRepository.UpdateCombateAsync(combate);
+                await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
             }
             return NoContent();
         }
@@ -172,6 +185,7 @@ namespace Wyvern.Api.Controllers
             participante.FalhasMorte = dto.FalhasMorte;
 
             await _uof.CombateRepository.UpdateParticipanteAsync(participante);
+            await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
             return NoContent();
         }
     }

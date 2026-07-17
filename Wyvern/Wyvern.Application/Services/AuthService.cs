@@ -35,6 +35,7 @@ namespace Wyvern.Application.Services
                 Nome = dto.Nome,
                 Email = dto.Email,
                 SenhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha),
+                Papel = dto.Papel ?? "Jogador",
                 CriadoEm = DateTime.Now,
                 Ativo = true
             };
@@ -48,6 +49,7 @@ namespace Wyvern.Application.Services
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
+                Papel = user.Papel,
                 Token = token
             };
         }
@@ -65,6 +67,7 @@ namespace Wyvern.Application.Services
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
+                Papel = user.Papel,
                 Token = token
             };
         }
@@ -79,7 +82,8 @@ namespace Wyvern.Application.Services
                 {
                     new Claim(ClaimTypes.NameIdentifier, user.UsuarioId.ToString()),
                     new Claim(ClaimTypes.Name, user.Nome),
-                    new Claim(ClaimTypes.Email, user.Email)
+                    new Claim(ClaimTypes.Email, user.Email),
+                    new Claim(ClaimTypes.Role, user.Papel ?? "Jogador")
                 }),
                 Expires = DateTime.UtcNow.AddDays(7),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)

@@ -1,6 +1,5 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
-using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -9,7 +8,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace Wyvern.Infrastructure.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialPostgres : Migration
+    public partial class InitialSqlite : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -18,11 +17,11 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Itens",
                 columns: table => new
                 {
-                    ItemId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false)
+                    ItemId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -33,12 +32,12 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Magias",
                 columns: table => new
                 {
-                    MagiaId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: false),
-                    Nivel = table.Column<int>(type: "integer", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false)
+                    MagiaId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false),
+                    Nivel = table.Column<int>(type: "INTEGER", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -49,10 +48,10 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Pericias",
                 columns: table => new
                 {
-                    PericiaId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false)
+                    PericiaId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -63,9 +62,9 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "TipoPersonagem",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nome = table.Column<string>(type: "text", nullable: false)
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -76,13 +75,13 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Usuario",
                 columns: table => new
                 {
-                    UsuarioId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Email = table.Column<string>(type: "text", nullable: false),
-                    SenhaHash = table.Column<string>(type: "text", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false)
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Email = table.Column<string>(type: "TEXT", nullable: false),
+                    SenhaHash = table.Column<string>(type: "TEXT", nullable: false),
+                    CriadoEm = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -93,13 +92,14 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Campanhas",
                 columns: table => new
                 {
-                    CampanhaId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Sistema = table.Column<string>(type: "text", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    MestreId = table.Column<int>(type: "integer", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false)
+                    CampanhaId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Sistema = table.Column<string>(type: "TEXT", nullable: false),
+                    CriadoEm = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    MestreId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false),
+                    TokenConvite = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -113,15 +113,42 @@ namespace Wyvern.Infrastructure.Migrations
                 });
 
             migrationBuilder.CreateTable(
+                name: "Campanhas_Jogadores",
+                columns: table => new
+                {
+                    Id = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    CampanhaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    UsuarioId = table.Column<int>(type: "INTEGER", nullable: false),
+                    EntrouEm = table.Column<DateTime>(type: "TEXT", nullable: false)
+                },
+                constraints: table =>
+                {
+                    table.PrimaryKey("PK_Campanhas_Jogadores", x => x.Id);
+                    table.ForeignKey(
+                        name: "FK_Campanhas_Jogadores_Campanhas_CampanhaId",
+                        column: x => x.CampanhaId,
+                        principalTable: "Campanhas",
+                        principalColumn: "CampanhaId",
+                        onDelete: ReferentialAction.Cascade);
+                    table.ForeignKey(
+                        name: "FK_Campanhas_Jogadores_Usuario_UsuarioId",
+                        column: x => x.UsuarioId,
+                        principalTable: "Usuario",
+                        principalColumn: "UsuarioId",
+                        onDelete: ReferentialAction.Restrict);
+                });
+
+            migrationBuilder.CreateTable(
                 name: "PastasAnotacao",
                 columns: table => new
                 {
-                    PastaId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    CampanhaId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
-                    IsPublica = table.Column<bool>(type: "boolean", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    PastaId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    CampanhaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", maxLength: 100, nullable: false),
+                    IsPublica = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CriadoEm = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -138,15 +165,15 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Personagens",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: false),
-                    CampanhaId = table.Column<int>(type: "integer", nullable: false),
-                    TipoId = table.Column<int>(type: "integer", nullable: false),
-                    CriadoPorId = table.Column<int>(type: "integer", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false),
+                    CampanhaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    TipoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    CriadoPorId = table.Column<int>(type: "INTEGER", nullable: false),
+                    CriadoEm = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -175,15 +202,15 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Sessoes",
                 columns: table => new
                 {
-                    SessaoId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    NumeroSessao = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    DataSessao = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
-                    DataAgendada = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
-                    Obs = table.Column<string>(type: "text", nullable: false),
-                    CampanhaId = table.Column<int>(type: "integer", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false)
+                    SessaoId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    NumeroSessao = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    DataSessao = table.Column<DateTime>(type: "TEXT", nullable: false),
+                    DataAgendada = table.Column<DateTime>(type: "TEXT", nullable: true),
+                    Obs = table.Column<string>(type: "TEXT", nullable: false),
+                    CampanhaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -200,14 +227,15 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Anotacoes",
                 columns: table => new
                 {
-                    AnotacaoId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    CampanhaId = table.Column<int>(type: "integer", nullable: false),
-                    PastaId = table.Column<int>(type: "integer", nullable: true),
-                    Titulo = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
-                    Conteudo = table.Column<string>(type: "text", nullable: false),
-                    IsPublica = table.Column<bool>(type: "boolean", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    AnotacaoId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    CampanhaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    PastaId = table.Column<int>(type: "INTEGER", nullable: true),
+                    Titulo = table.Column<string>(type: "TEXT", maxLength: 200, nullable: false),
+                    Conteudo = table.Column<string>(type: "TEXT", nullable: false),
+                    IsPublica = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CriadoPorId = table.Column<int>(type: "INTEGER", nullable: true),
+                    CriadoEm = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -223,25 +251,31 @@ namespace Wyvern.Infrastructure.Migrations
                         column: x => x.PastaId,
                         principalTable: "PastasAnotacao",
                         principalColumn: "PastaId");
+                    table.ForeignKey(
+                        name: "FK_Anotacoes_Usuario_CriadoPorId",
+                        column: x => x.CriadoPorId,
+                        principalTable: "Usuario",
+                        principalColumn: "UsuarioId",
+                        onDelete: ReferentialAction.Restrict);
                 });
 
             migrationBuilder.CreateTable(
                 name: "Atributos",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Forca = table.Column<int>(type: "integer", nullable: false),
-                    Destreza = table.Column<int>(type: "integer", nullable: false),
-                    Constituicao = table.Column<int>(type: "integer", nullable: false),
-                    Inteligencia = table.Column<int>(type: "integer", nullable: false),
-                    Sabedoria = table.Column<int>(type: "integer", nullable: false),
-                    Carisma = table.Column<int>(type: "integer", nullable: false),
-                    ProficienciaSalvaguardaForca = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaSalvaguardaDestreza = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaSalvaguardaConstituicao = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaSalvaguardaInteligencia = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaSalvaguardaSabedoria = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaSalvaguardaCarisma = table.Column<bool>(type: "boolean", nullable: false)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Forca = table.Column<int>(type: "INTEGER", nullable: false),
+                    Destreza = table.Column<int>(type: "INTEGER", nullable: false),
+                    Constituicao = table.Column<int>(type: "INTEGER", nullable: false),
+                    Inteligencia = table.Column<int>(type: "INTEGER", nullable: false),
+                    Sabedoria = table.Column<int>(type: "INTEGER", nullable: false),
+                    Carisma = table.Column<int>(type: "INTEGER", nullable: false),
+                    ProficienciaSalvaguardaForca = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaSalvaguardaDestreza = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaSalvaguardaConstituicao = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaSalvaguardaInteligencia = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaSalvaguardaSabedoria = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaSalvaguardaCarisma = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -258,11 +292,11 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemAcoesBonus",
                 columns: table => new
                 {
-                    PersonagemAcaoBonusId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: false)
+                    PersonagemAcaoBonusId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -279,12 +313,12 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemAcoesLendarias",
                 columns: table => new
                 {
-                    PersonagemAcaoLendariaId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    CustoAcao = table.Column<string>(type: "text", nullable: true),
-                    Descricao = table.Column<string>(type: "text", nullable: false)
+                    PersonagemAcaoLendariaId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    CustoAcao = table.Column<string>(type: "TEXT", nullable: true),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -301,18 +335,18 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemAcoesPadrao",
                 columns: table => new
                 {
-                    PersonagemAcaoPadraoId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: true),
-                    Alcance = table.Column<string>(type: "text", nullable: true),
-                    BonusAcerto = table.Column<int>(type: "integer", nullable: false),
-                    Dano = table.Column<string>(type: "text", nullable: true),
-                    TipoDano = table.Column<string>(type: "text", nullable: true),
-                    Propriedades = table.Column<string>(type: "text", nullable: true),
-                    AtributoBase = table.Column<string>(type: "text", nullable: true),
-                    Proficiente = table.Column<bool>(type: "boolean", nullable: false)
+                    PersonagemAcaoPadraoId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: true),
+                    Alcance = table.Column<string>(type: "TEXT", nullable: true),
+                    BonusAcerto = table.Column<int>(type: "INTEGER", nullable: false),
+                    Dano = table.Column<string>(type: "TEXT", nullable: true),
+                    TipoDano = table.Column<string>(type: "TEXT", nullable: true),
+                    Propriedades = table.Column<string>(type: "TEXT", nullable: true),
+                    AtributoBase = table.Column<string>(type: "TEXT", nullable: true),
+                    Proficiente = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -329,17 +363,17 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemAtaques",
                 columns: table => new
                 {
-                    PersonagemAtaqueId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Alcance = table.Column<string>(type: "text", nullable: false),
-                    BonusAcerto = table.Column<int>(type: "integer", nullable: false),
-                    Dano = table.Column<string>(type: "text", nullable: false),
-                    TipoDano = table.Column<string>(type: "text", nullable: false),
-                    Propriedades = table.Column<string>(type: "text", nullable: false),
-                    AtributoBase = table.Column<string>(type: "text", nullable: true),
-                    Proficiente = table.Column<bool>(type: "boolean", nullable: false)
+                    PersonagemAtaqueId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Alcance = table.Column<string>(type: "TEXT", nullable: false),
+                    BonusAcerto = table.Column<int>(type: "INTEGER", nullable: false),
+                    Dano = table.Column<string>(type: "TEXT", nullable: false),
+                    TipoDano = table.Column<string>(type: "TEXT", nullable: false),
+                    Propriedades = table.Column<string>(type: "TEXT", nullable: false),
+                    AtributoBase = table.Column<string>(type: "TEXT", nullable: true),
+                    Proficiente = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -356,20 +390,20 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemCombates",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    VidaAtual = table.Column<int>(type: "integer", nullable: false),
-                    VidaMaxima = table.Column<int>(type: "integer", nullable: false),
-                    ClasseArmadura = table.Column<int>(type: "integer", nullable: false),
-                    Iniciativa = table.Column<int>(type: "integer", nullable: false),
-                    Deslocamento = table.Column<string>(type: "text", nullable: true),
-                    ProficienciaBonus = table.Column<int>(type: "integer", nullable: false),
-                    InspiracaoHeroica = table.Column<bool>(type: "boolean", nullable: false),
-                    VidaTemporaria = table.Column<int>(type: "integer", nullable: false),
-                    DadoVidaMaximo = table.Column<string>(type: "text", nullable: true),
-                    DadoVidaGasto = table.Column<int>(type: "integer", nullable: false),
-                    DeathSaveSucessos = table.Column<int>(type: "integer", nullable: false),
-                    DeathSaveFalhas = table.Column<int>(type: "integer", nullable: false),
-                    ClasseArmaduraEscudo = table.Column<int>(type: "integer", nullable: false)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    VidaAtual = table.Column<int>(type: "INTEGER", nullable: false),
+                    VidaMaxima = table.Column<int>(type: "INTEGER", nullable: false),
+                    ClasseArmadura = table.Column<int>(type: "INTEGER", nullable: false),
+                    Iniciativa = table.Column<int>(type: "INTEGER", nullable: false),
+                    Deslocamento = table.Column<string>(type: "TEXT", nullable: true),
+                    ProficienciaBonus = table.Column<int>(type: "INTEGER", nullable: false),
+                    InspiracaoHeroica = table.Column<bool>(type: "INTEGER", nullable: false),
+                    VidaTemporaria = table.Column<int>(type: "INTEGER", nullable: false),
+                    DadoVidaMaximo = table.Column<string>(type: "TEXT", nullable: true),
+                    DadoVidaGasto = table.Column<int>(type: "INTEGER", nullable: false),
+                    DeathSaveSucessos = table.Column<int>(type: "INTEGER", nullable: false),
+                    DeathSaveFalhas = table.Column<int>(type: "INTEGER", nullable: false),
+                    ClasseArmaduraEscudo = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -386,26 +420,26 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemConjuracoes",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    AtributoConjuracao = table.Column<string>(type: "text", nullable: true),
-                    SlotsNivel1Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel2Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel3Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel4Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel5Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel6Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel7Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel8Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel9Max = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel1Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel2Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel3Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel4Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel5Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel6Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel7Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel8Atual = table.Column<int>(type: "integer", nullable: false),
-                    SlotsNivel9Atual = table.Column<int>(type: "integer", nullable: false)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    AtributoConjuracao = table.Column<string>(type: "TEXT", nullable: true),
+                    SlotsNivel1Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel2Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel3Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel4Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel5Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel6Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel7Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel8Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel9Max = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel1Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel2Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel3Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel4Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel5Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel6Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel7Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel8Atual = table.Column<int>(type: "INTEGER", nullable: false),
+                    SlotsNivel9Atual = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -422,19 +456,19 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemDetalhes",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Aparencia = table.Column<string>(type: "text", nullable: true),
-                    HistoriaPersonalidade = table.Column<string>(type: "text", nullable: true),
-                    TracosEspecie = table.Column<string>(type: "text", nullable: true),
-                    Talentos = table.Column<string>(type: "text", nullable: true),
-                    CaracteristicasClasse = table.Column<string>(type: "text", nullable: true),
-                    ProficienciaArmas = table.Column<string>(type: "text", nullable: true),
-                    ProficienciaFerramentas = table.Column<string>(type: "text", nullable: true),
-                    Idiomas = table.Column<string>(type: "text", nullable: true),
-                    ProficienciaArmaduraLeve = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaArmaduraMedia = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaArmaduraPesada = table.Column<bool>(type: "boolean", nullable: false),
-                    ProficienciaEscudos = table.Column<bool>(type: "boolean", nullable: false)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Aparencia = table.Column<string>(type: "TEXT", nullable: true),
+                    HistoriaPersonalidade = table.Column<string>(type: "TEXT", nullable: true),
+                    TracosEspecie = table.Column<string>(type: "TEXT", nullable: true),
+                    Talentos = table.Column<string>(type: "TEXT", nullable: true),
+                    CaracteristicasClasse = table.Column<string>(type: "TEXT", nullable: true),
+                    ProficienciaArmas = table.Column<string>(type: "TEXT", nullable: true),
+                    ProficienciaFerramentas = table.Column<string>(type: "TEXT", nullable: true),
+                    Idiomas = table.Column<string>(type: "TEXT", nullable: true),
+                    ProficienciaArmaduraLeve = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaArmaduraMedia = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaArmaduraPesada = table.Column<bool>(type: "INTEGER", nullable: false),
+                    ProficienciaEscudos = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -451,12 +485,12 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemDinheiros",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    PC = table.Column<int>(type: "integer", nullable: false),
-                    PP = table.Column<int>(type: "integer", nullable: false),
-                    PE = table.Column<int>(type: "integer", nullable: false),
-                    PO = table.Column<int>(type: "integer", nullable: false),
-                    PL = table.Column<int>(type: "integer", nullable: false)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    PC = table.Column<int>(type: "INTEGER", nullable: false),
+                    PP = table.Column<int>(type: "INTEGER", nullable: false),
+                    PE = table.Column<int>(type: "INTEGER", nullable: false),
+                    PO = table.Column<int>(type: "INTEGER", nullable: false),
+                    PL = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -473,13 +507,13 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemItens",
                 columns: table => new
                 {
-                    PersonagemItemId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    TipoItem = table.Column<string>(type: "text", nullable: false),
-                    Raridade = table.Column<string>(type: "text", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: false)
+                    PersonagemItemId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    TipoItem = table.Column<string>(type: "TEXT", nullable: false),
+                    Raridade = table.Column<string>(type: "TEXT", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -496,16 +530,16 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemMagias",
                 columns: table => new
                 {
-                    PersonagemMagiaId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Nivel = table.Column<int>(type: "integer", nullable: false),
-                    Escola = table.Column<string>(type: "text", nullable: false),
-                    Verbal = table.Column<bool>(type: "boolean", nullable: false),
-                    Somatico = table.Column<bool>(type: "boolean", nullable: false),
-                    Material = table.Column<bool>(type: "boolean", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: false)
+                    PersonagemMagiaId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Nivel = table.Column<int>(type: "INTEGER", nullable: false),
+                    Escola = table.Column<string>(type: "TEXT", nullable: false),
+                    Verbal = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Somatico = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Material = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -522,10 +556,10 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemPericias",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    PericiaId = table.Column<int>(type: "integer", nullable: false),
-                    Bonus = table.Column<int>(type: "integer", nullable: false),
-                    Proficiente = table.Column<bool>(type: "boolean", nullable: false)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    PericiaId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Bonus = table.Column<int>(type: "INTEGER", nullable: false),
+                    Proficiente = table.Column<bool>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -548,15 +582,15 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemPlayers",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Classe = table.Column<string>(type: "character varying(50)", maxLength: 50, nullable: false),
-                    Raca = table.Column<string>(type: "text", nullable: false),
-                    Nivel = table.Column<int>(type: "integer", nullable: false),
-                    Xp = table.Column<int>(type: "integer", nullable: false),
-                    Alinhamento = table.Column<string>(type: "text", nullable: false),
-                    Antecedente = table.Column<string>(type: "text", nullable: true),
-                    Subclasse = table.Column<string>(type: "text", nullable: true),
-                    Tamanho = table.Column<string>(type: "text", nullable: true)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Classe = table.Column<string>(type: "TEXT", maxLength: 50, nullable: false),
+                    Raca = table.Column<string>(type: "TEXT", nullable: false),
+                    Nivel = table.Column<int>(type: "INTEGER", nullable: false),
+                    Xp = table.Column<int>(type: "INTEGER", nullable: false),
+                    Alinhamento = table.Column<string>(type: "TEXT", nullable: false),
+                    Antecedente = table.Column<string>(type: "TEXT", nullable: true),
+                    Subclasse = table.Column<string>(type: "TEXT", nullable: true),
+                    Tamanho = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -573,12 +607,12 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemReacoes",
                 columns: table => new
                 {
-                    PersonagemReacaoId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Gatilho = table.Column<string>(type: "text", nullable: true),
-                    Descricao = table.Column<string>(type: "text", nullable: false)
+                    PersonagemReacaoId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Gatilho = table.Column<string>(type: "TEXT", nullable: true),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -595,11 +629,11 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagemTracosEspeciais",
                 columns: table => new
                 {
-                    PersonagemTracoEspecialId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    Nome = table.Column<string>(type: "text", nullable: false),
-                    Descricao = table.Column<string>(type: "text", nullable: false)
+                    PersonagemTracoEspecialId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    Nome = table.Column<string>(type: "TEXT", nullable: false),
+                    Descricao = table.Column<string>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -616,22 +650,22 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "PersonagensNpc",
                 columns: table => new
                 {
-                    PersonagemId = table.Column<int>(type: "integer", nullable: false),
-                    CategoriaUso = table.Column<string>(type: "text", nullable: true),
-                    Tamanho = table.Column<string>(type: "text", nullable: true),
-                    TipoCriatura = table.Column<string>(type: "text", nullable: true),
-                    Tendencia = table.Column<string>(type: "text", nullable: true),
-                    FormulaDadoVida = table.Column<string>(type: "text", nullable: true),
-                    Vulnerabilidades = table.Column<string>(type: "text", nullable: true),
-                    Resistencias = table.Column<string>(type: "text", nullable: true),
-                    ImunidadesDano = table.Column<string>(type: "text", nullable: true),
-                    ImunidadesCondicao = table.Column<string>(type: "text", nullable: true),
-                    Sentidos = table.Column<string>(type: "text", nullable: true),
-                    NivelDesafio = table.Column<string>(type: "text", nullable: true),
-                    XpConcedido = table.Column<int>(type: "integer", nullable: false),
-                    VinculosIdeais = table.Column<string>(type: "text", nullable: true),
-                    SegredosFaccoes = table.Column<string>(type: "text", nullable: true),
-                    AnotacoesLivres = table.Column<string>(type: "text", nullable: true)
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: false),
+                    CategoriaUso = table.Column<string>(type: "TEXT", nullable: true),
+                    Tamanho = table.Column<string>(type: "TEXT", nullable: true),
+                    TipoCriatura = table.Column<string>(type: "TEXT", nullable: true),
+                    Tendencia = table.Column<string>(type: "TEXT", nullable: true),
+                    FormulaDadoVida = table.Column<string>(type: "TEXT", nullable: true),
+                    Vulnerabilidades = table.Column<string>(type: "TEXT", nullable: true),
+                    Resistencias = table.Column<string>(type: "TEXT", nullable: true),
+                    ImunidadesDano = table.Column<string>(type: "TEXT", nullable: true),
+                    ImunidadesCondicao = table.Column<string>(type: "TEXT", nullable: true),
+                    Sentidos = table.Column<string>(type: "TEXT", nullable: true),
+                    NivelDesafio = table.Column<string>(type: "TEXT", nullable: true),
+                    XpConcedido = table.Column<int>(type: "INTEGER", nullable: false),
+                    VinculosIdeais = table.Column<string>(type: "TEXT", nullable: true),
+                    SegredosFaccoes = table.Column<string>(type: "TEXT", nullable: true),
+                    AnotacoesLivres = table.Column<string>(type: "TEXT", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -648,13 +682,13 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "Combates",
                 columns: table => new
                 {
-                    CombateId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    SessaoId = table.Column<int>(type: "integer", nullable: false),
-                    RodadaAtual = table.Column<int>(type: "integer", nullable: false),
-                    TurnoAtualIndex = table.Column<int>(type: "integer", nullable: false),
-                    Ativo = table.Column<bool>(type: "boolean", nullable: false),
-                    CriadoEm = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    CombateId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    SessaoId = table.Column<int>(type: "INTEGER", nullable: false),
+                    RodadaAtual = table.Column<int>(type: "INTEGER", nullable: false),
+                    TurnoAtualIndex = table.Column<int>(type: "INTEGER", nullable: false),
+                    Ativo = table.Column<bool>(type: "INTEGER", nullable: false),
+                    CriadoEm = table.Column<DateTime>(type: "TEXT", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -671,19 +705,19 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "CombateParticipantes",
                 columns: table => new
                 {
-                    ParticipanteId = table.Column<int>(type: "integer", nullable: false)
-                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
-                    CombateId = table.Column<int>(type: "integer", nullable: false),
-                    PersonagemId = table.Column<int>(type: "integer", nullable: true),
-                    NomeNPC = table.Column<string>(type: "text", nullable: true),
-                    Iniciativa = table.Column<int>(type: "integer", nullable: false),
-                    VidaAtual = table.Column<int>(type: "integer", nullable: false),
-                    VidaMaxima = table.Column<int>(type: "integer", nullable: false),
-                    ClasseArmadura = table.Column<int>(type: "integer", nullable: false),
-                    IsInimigo = table.Column<bool>(type: "boolean", nullable: false),
-                    Condicoes = table.Column<string>(type: "text", nullable: false),
-                    SucessosMorte = table.Column<int>(type: "integer", nullable: false),
-                    FalhasMorte = table.Column<int>(type: "integer", nullable: false)
+                    ParticipanteId = table.Column<int>(type: "INTEGER", nullable: false)
+                        .Annotation("Sqlite:Autoincrement", true),
+                    CombateId = table.Column<int>(type: "INTEGER", nullable: false),
+                    PersonagemId = table.Column<int>(type: "INTEGER", nullable: true),
+                    NomeNPC = table.Column<string>(type: "TEXT", nullable: true),
+                    Iniciativa = table.Column<int>(type: "INTEGER", nullable: false),
+                    VidaAtual = table.Column<int>(type: "INTEGER", nullable: false),
+                    VidaMaxima = table.Column<int>(type: "INTEGER", nullable: false),
+                    ClasseArmadura = table.Column<int>(type: "INTEGER", nullable: false),
+                    IsInimigo = table.Column<bool>(type: "INTEGER", nullable: false),
+                    Condicoes = table.Column<string>(type: "TEXT", nullable: false),
+                    SucessosMorte = table.Column<int>(type: "INTEGER", nullable: false),
+                    FalhasMorte = table.Column<int>(type: "INTEGER", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -742,6 +776,11 @@ namespace Wyvern.Infrastructure.Migrations
                 column: "CampanhaId");
 
             migrationBuilder.CreateIndex(
+                name: "IX_Anotacoes_CriadoPorId",
+                table: "Anotacoes",
+                column: "CriadoPorId");
+
+            migrationBuilder.CreateIndex(
                 name: "IX_Anotacoes_PastaId",
                 table: "Anotacoes",
                 column: "PastaId");
@@ -750,6 +789,16 @@ namespace Wyvern.Infrastructure.Migrations
                 name: "IX_Campanhas_MestreId",
                 table: "Campanhas",
                 column: "MestreId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Campanhas_Jogadores_CampanhaId",
+                table: "Campanhas_Jogadores",
+                column: "CampanhaId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Campanhas_Jogadores_UsuarioId",
+                table: "Campanhas_Jogadores",
+                column: "UsuarioId");
 
             migrationBuilder.CreateIndex(
                 name: "IX_CombateParticipantes_CombateId",
@@ -845,6 +894,9 @@ namespace Wyvern.Infrastructure.Migrations
 
             migrationBuilder.DropTable(
                 name: "Atributos");
+
+            migrationBuilder.DropTable(
+                name: "Campanhas_Jogadores");
 
             migrationBuilder.DropTable(
                 name: "CombateParticipantes");

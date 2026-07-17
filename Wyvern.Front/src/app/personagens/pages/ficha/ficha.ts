@@ -7,6 +7,7 @@ import { FichaAtributos } from '../../components/ficha-atributos/ficha-atributos
 import { ItemService, Item } from '../../../core/services/item.service';
 import { MagiaService, Magia } from '../../../core/services/magia.service';
 import { PersonagemService } from '../../services/personagem.service';
+import { environment } from '../../../../environments/environments';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -164,7 +165,7 @@ export class FichaComponent implements OnInit {
       formData.append('file', file);
 
       try {
-        const response = await fetch('https://localhost:7098/Personagem/import-pdf', {
+        const response = await fetch(`${environment.apiUrl}/Personagem/import-pdf`, {
           method: 'POST',
           body: formData
         });
@@ -191,7 +192,7 @@ export class FichaComponent implements OnInit {
       return;
     }
     
-    window.open(`https://localhost:7098/Personagem/${this.personagem.personagemId}/export-pdf`, '_blank');
+    window.open(`${environment.apiUrl}/Personagem/${this.personagem.personagemId}/export-pdf`, '_blank');
   }
 
   getModValue(score: number | undefined): number {

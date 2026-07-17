@@ -28,6 +28,7 @@ namespace Wyvern.Infrastructure.Data
         public DbSet<Magia> Magias { get; set; }
         public DbSet<Item> Itens { get; set; }
         public DbSet<Campanha> Campanhas { get; set; }
+        public DbSet<CampanhaJogador> CampanhasJogadores { get; set; }
         public DbSet<Atributo> Atributos { get; set; }
         public DbSet<PersonagemDetalhes> PersonagemDetalhes { get; set; }
         public DbSet<PersonagemDinheiro> PersonagemDinheiros { get; set; }
@@ -144,6 +145,18 @@ namespace Wyvern.Infrastructure.Data
                 .HasForeignKey(c => c.MestreId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            modelBuilder.Entity<CampanhaJogador>()
+                .HasOne(cj => cj.Campanha)
+                .WithMany(c => c.Jogadores)
+                .HasForeignKey(cj => cj.CampanhaId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<CampanhaJogador>()
+                .HasOne(cj => cj.Usuario)
+                .WithMany()
+                .HasForeignKey(cj => cj.UsuarioId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             modelBuilder.Entity<PastaAnotacao>()
                 .HasMany(p => p.Anotacoes)
                 .WithOne(a => a.Pasta)
@@ -155,6 +168,13 @@ namespace Wyvern.Infrastructure.Data
                 .WithMany()
                 .HasForeignKey(a => a.CampanhaId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Anotacao>()
+                .HasOne(a => a.CriadoPor)
+                .WithMany()
+                .HasForeignKey(a => a.CriadoPorId)
+                .OnDelete(DeleteBehavior.Restrict);
+
             // 4. Mapeamento Manual de Nomes de Tabela
             modelBuilder.Entity<Usuario>().ToTable("Usuario");
 

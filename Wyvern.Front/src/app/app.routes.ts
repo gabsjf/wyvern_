@@ -37,7 +37,8 @@ export const routes: Routes = [
     {path: 'sessoes/:id/edit', component: SessaoCreate},
     {path: 'sessoes/:id', component: SessaoDetail},
     {path: 'combate', loadComponent: () => import('./sessoes/pages/combate-tracker/combate-tracker').then(m => m.CombateTracker)},
-        {path: 'play/:id', component: PlaySession}
+        {path: 'play/:id', component: PlaySession},
+        {path: 'invite/:token', loadComponent: () => import('./campaigns/pages/invite/invite').then(m => m.InviteComponent)}
       ]
     }
 ];

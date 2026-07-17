@@ -5,6 +5,7 @@ import { Router, RouterModule, ActivatedRoute } from '@angular/router';
 import { PersonagemService } from '../../services/personagem.service';
 import { CampaignService } from '../../../campaigns/services/campaign';
 import { Campaign } from '../../../campaigns/models/campaign';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-personagem-create',
@@ -18,6 +19,11 @@ export class PersonagemCreate implements OnInit {
   private router = inject(Router);
   private route = inject(ActivatedRoute);
   private cdr = inject(ChangeDetectorRef);
+  private authService = inject(AuthService);
+
+  get userRole(): string {
+    return this.authService.userRole || 'Jogador';
+  }
 
   campanhas: Campaign[] = [];
   periciasDisponiveis: any[] = [];

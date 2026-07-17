@@ -44,7 +44,10 @@ public class SessaoController : ControllerBase
         var sessionDto = _mapper.Map<SessaoResponseDto>(session);
         return Ok(sessionDto);
     }
+
+
     [HttpPost]
+    [Authorize(Roles = "Mestre")]
     public async Task<ActionResult<SessaoResponseDto>> CreateSessao(CreateSessaoDto sessaoDto)
     {
         if (sessaoDto == null) return BadRequest("Dados inválidos");
@@ -61,6 +64,7 @@ public class SessaoController : ControllerBase
         return CreatedAtAction(nameof(GetSessaoById), new { id = sessao.SessaoId }, sessaoCriadaDto);
     }
     [HttpPut("{id:int}")]
+    [Authorize(Roles = "Mestre")]
     public async Task<ActionResult> UpdateSessao(int id, UpdateSessaoDto sessaoDto)
     {
         var sessaoBanco = await _uof.SessaoRepository.GetSessaoAsync(id);
@@ -79,6 +83,7 @@ public class SessaoController : ControllerBase
     }
 
     [HttpDelete("{id:int}")]
+    [Authorize(Roles = "Mestre")]
     public async Task<ActionResult> DeleteSessao(int id)
     {
         try

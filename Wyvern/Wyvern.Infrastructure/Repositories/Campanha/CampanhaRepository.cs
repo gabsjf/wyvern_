@@ -21,7 +21,8 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
             return await _context.Campanhas
                 .Include(c => c.Mestre)
                 .Include(c => c.Sessoes)
-                .Where(c => c.Ativo && c.MestreId == _currentUser.UserId)
+                .Include(c => c.Jogadores)
+                .Where(c => c.Ativo && (c.MestreId == _currentUser.UserId || c.Jogadores!.Any(j => j.UsuarioId == _currentUser.UserId)))
                 .ToListAsync();
         }
 
@@ -30,7 +31,17 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
             return await _context.Campanhas
                 .Include(c => c.Mestre)
                 .Include(c => c.Sessoes)
-                .FirstOrDefaultAsync(c => c.CampanhaId == id && c.Ativo && c.MestreId == _currentUser.UserId);
+                .Include(c => c.Jogadores)
+                .FirstOrDefaultAsync(c => c.CampanhaId == id && c.Ativo && (c.MestreId == _currentUser.UserId || c.Jogadores!.Any(j => j.UsuarioId == _currentUser.UserId)));
+        }
+
+        public async Task<CampanhaEntity?> GetCampanhaByTokenAsync(string token)
+        {
+            return await _context.Campanhas
+                .Include(c => c.Mestre)
+                .Include(c => c.Sessoes)
+                .Include(c => c.Jogadores)
+                .FirstOrDefaultAsync(c => c.TokenConvite == token && c.Ativo);
         }
 
         public async Task<CampanhaEntity> CreateCampanhaAsync(CampanhaEntity campanha)

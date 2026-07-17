@@ -6,5 +6,6 @@ export interface Sessao {
     dataAgendada?: string;
     obs?: string;
     campanhaId: number;
+    campanha?: { nome: string };
     ativo?: boolean;
 }

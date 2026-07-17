@@ -104,3 +104,9 @@
     box-shadow: 0 0 5px #ff4d4d;
   }
 }
+
+@media (max-width: 600px) {
+  .header-glass-panel {
+    padding: var(--spacing-sm);
+  }
+}

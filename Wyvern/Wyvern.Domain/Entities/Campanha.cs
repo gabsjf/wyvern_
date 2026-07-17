@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using System.ComponentModel.DataAnnotations;
@@ -19,6 +19,8 @@ namespace Wyvern.Domain.Entities
         public Usuario? Mestre { get; set; }
         public List<Sessao>? Sessoes { get; set; }
         public bool Ativo { get; set; } = true;
+        public string? TokenConvite { get; set; }
+        public List<CampanhaJogador>? Jogadores { get; set; }
 
 
     }

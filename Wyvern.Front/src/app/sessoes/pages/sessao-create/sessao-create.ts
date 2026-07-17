@@ -6,6 +6,7 @@ import { SessaoService } from '../../services/sessao.service';
 import { Sessao } from '../../models/sessao';
 import { CampaignService } from '../../../campaigns/services/campaign';
 import { Campaign } from '../../../campaigns/models/campaign';
+import { AuthService } from '../../../core/services/auth.service';
 
 @Component({
   selector: 'app-sessao-create',
@@ -18,6 +19,7 @@ export class SessaoCreate implements OnInit {
   private campaignService = inject(CampaignService);
   private router = inject(Router);
   private route = inject(ActivatedRoute);
+  private authService = inject(AuthService);
 
   campanhas: Campaign[] = [];
   allSessoes: Sessao[] = [];
@@ -35,7 +37,9 @@ export class SessaoCreate implements OnInit {
 
   ngOnInit() {
     this.campaignService.getAll().subscribe({
-      next: (data) => this.campanhas = data,
+      next: (data) => {
+        this.campanhas = data.filter(c => c.papel === 'Mestre');
+      },
       error: (err) => console.error('Erro ao buscar campanhas', err)
     });
 

@@ -14,5 +14,8 @@ namespace Wyvern.Application.DTOs.Auth
         [Required(ErrorMessage = "A Senha é obrigatória")]
         [MinLength(6, ErrorMessage = "A senha deve ter no mínimo 6 caracteres")]
         public string Senha { get; set; }
+
+        [Required(ErrorMessage = "O Papel é obrigatório")]
+        public string Papel { get; set; }
     }
 }

@@ -23,7 +23,8 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .Include(p => p.Atributo)
                 .Include(p => p.PersonagemPlayer)
                 .Include(p => p.PersonagemCombate)
-                .Where(p => p.Ativo && p.CriadoPorId == _currentUser.UserId)
+                .Include(p => p.Campanha)
+                .Where(p => p.Ativo && (p.CriadoPorId == _currentUser.UserId || p.Campanha.MestreId == _currentUser.UserId))
                 .ToListAsync();
         }
 
@@ -48,7 +49,8 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .Include(p => p.PersonagemPericias!)
                     .ThenInclude(pp => pp.Pericia)
                 .AsSplitQuery()
-                .FirstOrDefaultAsync(p => p.PersonagemId == id && p.Ativo && p.CriadoPorId == _currentUser.UserId);
+                .Include(p => p.Campanha)
+                .FirstOrDefaultAsync(p => p.PersonagemId == id && p.Ativo && (p.CriadoPorId == _currentUser.UserId || p.Campanha.MestreId == _currentUser.UserId));
         }
 
         public async Task<PersonagemEntity> CreatePersonagemAsync(PersonagemEntity personagem)
