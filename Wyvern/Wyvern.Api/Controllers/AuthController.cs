@@ -19,35 +19,6 @@ namespace Wyvern.Api.Controllers
             _db = db;
         }
 
-        [HttpGet("fix-db")]
-        public IActionResult FixDb()
-        {
-            try
-            {
-                _db.Database.ExecuteSqlRaw("ALTER TABLE \"Usuarios\" ADD COLUMN IF NOT EXISTS \"Papel\" text NOT NULL DEFAULT 'Jogador';");
-                return Ok("Fixed without quotes");
-            }
-            catch (System.Exception ex)
-            {
-                return BadRequest(ex.ToString());
-            }
-        }
-
-        [HttpGet("reset-db")]
-        public IActionResult ResetDb()
-        {
-            try
-            {
-                _db.Database.EnsureDeleted();
-                _db.Database.EnsureCreated();
-                return Ok("Database reset and recreated successfully.");
-            }
-            catch (System.Exception ex)
-            {
-                return BadRequest(ex.ToString());
-            }
-        }
-
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
