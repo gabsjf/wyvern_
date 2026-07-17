@@ -24,8 +24,8 @@ namespace Wyvern.Api.Controllers
         {
             try
             {
-                _db.Database.ExecuteSqlRaw("ALTER TABLE \"Usuarios\" ADD COLUMN IF NOT EXISTS \"Papel\" text NOT NULL DEFAULT 'Jogador';");
-                return Ok("Fixed");
+                _db.Database.ExecuteSqlRaw("ALTER TABLE Usuarios ADD COLUMN IF NOT EXISTS \"Papel\" text NOT NULL DEFAULT 'Jogador';");
+                return Ok("Fixed without quotes");
             }
             catch (System.Exception ex)
             {
