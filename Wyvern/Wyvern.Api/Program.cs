@@ -73,16 +73,25 @@ builder.Services.AddCors(options =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
 builder.Services.AddDbContext<WyvernDbContext>(options =>
-    options.UseSqlite(connectionString));
+{
+    if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase))
+    {
+        options.UseNpgsql(connectionString);
+    }
+    else
+    {
+        options.UseSqlite(connectionString);
+    }
+});
 builder.Services.AddScoped<CampanhaRepository>();
 var app = builder.Build();
 
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<WyvernDbContext>();
-    db.Database.Migrate();
+    db.Database.EnsureCreated();
 }
 
 if (app.Environment.IsDevelopment())
