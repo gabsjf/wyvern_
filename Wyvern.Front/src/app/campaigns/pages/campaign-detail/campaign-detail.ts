@@ -75,7 +75,7 @@ export class CampaignDetail implements OnInit {
     if (this.campaign?.campanhaId) {
       this.campaignService.generateInvite(this.campaign.campanhaId).subscribe({
         next: (res) => {
-          this.inviteUrl = `${window.location.origin}/invite/${res.token}`;
+          this.inviteUrl = `https://wyvern-kappa.vercel.app/invite/${res.token}`;
           this.cdr.detectChanges();
         },
         error: (err) => console.error(err)
