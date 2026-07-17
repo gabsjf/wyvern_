@@ -92,6 +92,11 @@ using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<WyvernDbContext>();
     db.Database.EnsureCreated();
+    try 
+    {
+        db.Database.ExecuteSqlRaw("ALTER TABLE \"Usuarios\" ADD COLUMN \"Papel\" text NOT NULL DEFAULT 'Jogador';");
+    } 
+    catch { } // Ignora erro se a coluna já existir
 }
 
 if (app.Environment.IsDevelopment())
