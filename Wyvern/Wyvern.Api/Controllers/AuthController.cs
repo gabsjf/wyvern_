@@ -24,8 +24,23 @@ namespace Wyvern.Api.Controllers
         {
             try
             {
-                _db.Database.ExecuteSqlRaw("ALTER TABLE Usuarios ADD COLUMN IF NOT EXISTS \"Papel\" text NOT NULL DEFAULT 'Jogador';");
+                _db.Database.ExecuteSqlRaw("ALTER TABLE \"Usuarios\" ADD COLUMN IF NOT EXISTS \"Papel\" text NOT NULL DEFAULT 'Jogador';");
                 return Ok("Fixed without quotes");
+            }
+            catch (System.Exception ex)
+            {
+                return BadRequest(ex.ToString());
+            }
+        }
+
+        [HttpGet("reset-db")]
+        public IActionResult ResetDb()
+        {
+            try
+            {
+                _db.Database.EnsureDeleted();
+                _db.Database.EnsureCreated();
+                return Ok("Database reset and recreated successfully.");
             }
             catch (System.Exception ex)
             {
