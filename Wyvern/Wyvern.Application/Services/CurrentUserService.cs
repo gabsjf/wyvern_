@@ -18,7 +18,8 @@ namespace Wyvern.Application.Services
         {
             get
             {
-                var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
+                var userIdClaim = _httpContextAccessor.HttpContext?.User?.FindFirst("nameid") 
+                               ?? _httpContextAccessor.HttpContext?.User?.FindFirst(ClaimTypes.NameIdentifier);
                 if (userIdClaim != null && int.TryParse(userIdClaim.Value, out int userId))
                 {
                     return userId;
