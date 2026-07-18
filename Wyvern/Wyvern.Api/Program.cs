@@ -46,6 +46,7 @@ builder.Services.AddAuthentication(x =>
 })
 .AddJwtBearer(x =>
 {
+    x.MapInboundClaims = false; // Prevents claim mapping in newer .NET versions
     x.RequireHttpsMetadata = false;
     x.SaveToken = true;
     x.TokenValidationParameters = new TokenValidationParameters
