@@ -15,7 +15,7 @@ import { Login } from './core/pages/login/login';
 import { Register } from './core/pages/register/register';
 
 export const routes: Routes = [
-    {path: '', redirectTo: '/dashboard', pathMatch: 'full'},
+    {path: '', loadComponent: () => import('./core/pages/landing/landing').then(m => m.LandingComponent)},
     {path: 'login', component: Login},
     {path: 'register', component: Register},
     {
