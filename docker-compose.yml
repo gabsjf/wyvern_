@@ -1,30 +1,36 @@
 version: '3.8'
 
 services:
-  backend:
+  db:
+    image: postgres:15
+    container_name: wyvern_db
+    environment:
+      - POSTGRES_USER=wyvern
+      - POSTGRES_PASSWORD=wyvern_super_secret
+      - POSTGRES_DB=wyverndb
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  api:
     build:
-      context: ./Wyvern
+      context: .
       dockerfile: Dockerfile
+    container_name: wyvern_api
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Data Source=/app/data/wyvern.db
+      - ConnectionStrings__DefaultConnection=Host=db;Database=wyverndb;Username=wyvern;Password=wyvern_super_secret;
       - Jwt__Key=ThisIsAVerySecretKeyForJwtAuthenticationWhichShouldBeLongEnoughAndChangedInProd
       - Jwt__Issuer=WyvernApi
       - Jwt__Audience=WyvernFront
     ports:
       - "8080:8080"
-    volumes:
-      - wyvern_db:/app/data
-
-  frontend:
-    build:
-      context: ./Wyvern.Front
-      dockerfile: Dockerfile
-    ports:
-      - "80:80"
     depends_on:
-      - backend
+      - db
+    restart: unless-stopped
 
 volumes:
-  wyvern_db:
+  postgres_data:
