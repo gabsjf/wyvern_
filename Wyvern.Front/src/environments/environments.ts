@@ -1,4 +1,4 @@
 export const environment = {
     production: true,
-    apiUrl: 'https://wyvern-pmxw.onrender.com'
+    apiUrl: 'https://163-176-248-163.sslip.io'
 }
