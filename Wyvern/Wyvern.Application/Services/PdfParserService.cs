@@ -15,7 +15,7 @@ namespace Wyvern.Application.Services
             System.Text.Encoding.RegisterProvider(System.Text.CodePagesEncodingProvider.Instance);
         }
 
-        public Personagem ParsePdf(Stream pdfStream)
+        public Personagem ParsePdf(Stream pdfStream, int campanhaId, int criadoPorId)
         {
             var p = new Personagem
             {
@@ -28,8 +28,8 @@ namespace Wyvern.Application.Services
                 PersonagemItens = new List<PersonagemItem>(),
                 CriadoEm = DateTime.UtcNow,
                 Ativo = true,
-                CampanhaId = 3, // Valid ID in the local DB
-                CriadoPorId = 1,
+                CampanhaId = campanhaId,
+                CriadoPorId = criadoPorId,
                 TipoId = 1
             };
 

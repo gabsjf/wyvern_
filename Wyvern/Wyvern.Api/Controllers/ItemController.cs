@@ -2,7 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Item;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Wyvern.Api.Controllers
@@ -47,6 +47,7 @@ namespace Wyvern.Api.Controllers
             }
             var item = _mapper.Map<Item>(itemDto);
             await _uof.ItemRepository.CreateItemAsync(item);
+            await _uof.CommitAsync();
             var itemCriadoDto = _mapper.Map<ItemResponseDto>(item);
             return CreatedAtAction(nameof(GetItemById), new { id = item.ItemId }, itemCriadoDto);
         }
@@ -63,6 +64,7 @@ namespace Wyvern.Api.Controllers
             }
             _mapper.Map(itemDto, itemNoBanco);
             await _uof.ItemRepository.UpdateItemAsync(itemNoBanco);
+            await _uof.CommitAsync();
             var itemAtualizado = await _uof.ItemRepository.GetItemAsync(id);
             var itemDtoAtualizado = _mapper.Map<ItemResponseDto>(itemAtualizado);
             return Ok(_mapper.Map<ItemResponseDto>(itemNoBanco));
@@ -77,6 +79,7 @@ namespace Wyvern.Api.Controllers
                 return NotFound("item nao encontrado");
 
             }
+            await _uof.CommitAsync();
             return Ok("item deletado com sucesso");
         }
 

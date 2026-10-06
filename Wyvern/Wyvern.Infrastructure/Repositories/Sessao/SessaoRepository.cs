@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wyvern.Infrastructure.Data;
 using SessaoEntity = Wyvern.Domain.Entities.Sessao;
+using Wyvern.Domain.Interfaces.Repositories.Sessao;
 
 namespace Wyvern.Infrastructure.Repositories.Sessao
 {
@@ -28,26 +29,24 @@ namespace Wyvern.Infrastructure.Repositories.Sessao
                 .FirstOrDefaultAsync(s => s.SessaoId == id && s.Ativo);
         }
 
-        public async Task<SessaoEntity> CreateSessaoAsync(SessaoEntity sessao)
+        public Task<SessaoEntity> CreateSessaoAsync(SessaoEntity sessao)
         {
             if (sessao is null)
                 throw new ArgumentNullException(nameof(sessao));
 
             _context.Sessoes.Add(sessao);
-            await _context.SaveChangesAsync();
 
-            return sessao;
+            return Task.FromResult(sessao);
         }
 
-        public async Task<SessaoEntity> UpdateSessaoAsync(SessaoEntity sessao)
+        public Task<SessaoEntity> UpdateSessaoAsync(SessaoEntity sessao)
         {
             if (sessao is null)
                 throw new ArgumentNullException(nameof(sessao));
 
             _context.Entry(sessao).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return sessao;
+            return Task.FromResult(sessao);
         }
 
         public async Task<SessaoEntity> DeleteSessaoAsync(int id)
@@ -58,7 +57,6 @@ namespace Wyvern.Infrastructure.Repositories.Sessao
                 throw new ArgumentNullException(nameof(sessao));
 
             sessao.Ativo = false;
-            await _context.SaveChangesAsync();
 
             return sessao;
         }

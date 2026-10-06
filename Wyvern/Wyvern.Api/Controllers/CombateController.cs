@@ -8,7 +8,8 @@ using Wyvern.Domain.Entities;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Wyvern.Api.Hubs;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
+using Wyvern.Application.Services;
 
 namespace Wyvern.Api.Controllers
 {
@@ -19,11 +20,13 @@ namespace Wyvern.Api.Controllers
     {
         private readonly IUnitOfWork _uof;
         private readonly IHubContext<CombatHub> _hubContext;
+        private readonly ICombateService _combateService;
 
-        public CombateController(IUnitOfWork uof, IHubContext<CombatHub> hubContext)
+        public CombateController(IUnitOfWork uof, IHubContext<CombatHub> hubContext, ICombateService combateService)
         {
             _uof = uof;
             _hubContext = hubContext;
+            _combateService = combateService;
         }
 
         [HttpGet("{id}/participantes")]
@@ -84,6 +87,7 @@ namespace Wyvern.Api.Controllers
         public async Task<ActionResult<CombateCreateDto>> StartCombate([FromBody] CombateCreateDto dto)
         {
             int sessaoId = dto.SessaoId ?? 1;
+            Sessao? novaSessaoPendente = null;
 
             // Se SessaoId nao foi providenciado mas CampanhaId sim, buscamos a última sessão ou criamos
             if (!dto.SessaoId.HasValue && dto.CampanhaId.HasValue)
@@ -95,16 +99,17 @@ namespace Wyvern.Api.Controllers
                 }
                 else if (campanha != null)
                 {
-                    // Criar uma sessao fake para comportar o combate
-                    var novaSessao = new Sessao { CampanhaId = campanha.CampanhaId, Nome = "Sessão Automática", NumeroSessao = 1 };
-                    await _uof.SessaoRepository.CreateSessaoAsync(novaSessao);
-                    sessaoId = novaSessao.SessaoId;
+                    // Criar uma sessao fake para comportar o combate. O Id real só existe após o Commit,
+                    // então a ligação com o Combate é feita pela navegação (Sessao), não pelo Id ainda.
+                    novaSessaoPendente = new Sessao { CampanhaId = campanha.CampanhaId, Nome = "Sessão Automática", NumeroSessao = 1 };
+                    await _uof.SessaoRepository.CreateSessaoAsync(novaSessaoPendente);
                 }
             }
 
             var combate = new Wyvern.Domain.Entities.Combate
             {
                 SessaoId = sessaoId,
+                Sessao = novaSessaoPendente,
                 RodadaAtual = 1,
                 TurnoAtualIndex = 0,
                 Ativo = true,
@@ -123,6 +128,13 @@ namespace Wyvern.Api.Controllers
             };
             
             await _uof.CombateRepository.CreateCombateAsync(combate);
+            await _uof.CommitAsync();
+
+            if (novaSessaoPendente != null)
+            {
+                sessaoId = novaSessaoPendente.SessaoId;
+            }
+
             await _hubContext.Clients.Group($"Combate_{combate.CombateId}").SendAsync("ReceiveCombatUpdate");
             await _hubContext.Clients.Group($"Sessao_{sessaoId}").SendAsync("ReceiveCombatUpdate");
             return Ok(combate);
@@ -133,6 +145,7 @@ namespace Wyvern.Api.Controllers
         {
             var combate = await _uof.CombateRepository.GetCombateAsync(id);
             await _uof.CombateRepository.DeleteCombateAsync(id);
+            await _uof.CommitAsync();
             await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
             if (combate != null)
             {
@@ -144,27 +157,9 @@ namespace Wyvern.Api.Controllers
         [HttpPost("{id}/next-turn")]
         public async Task<IActionResult> NextTurn(int id)
         {
-            var combate = await _uof.CombateRepository.GetCombateAsync(id);
+            var combate = await _combateService.AvancarTurnoAsync(id);
             if (combate != null && combate.Participantes != null && combate.Participantes.Any())
             {
-                var participantesSorted = combate.Participantes.OrderByDescending(p => p.Iniciativa).ToList();
-                int originalIndex = combate.TurnoAtualIndex;
-                do
-                {
-                    combate.TurnoAtualIndex++;
-                    if (combate.TurnoAtualIndex >= participantesSorted.Count)
-                    {
-                        combate.TurnoAtualIndex = 0;
-                        combate.RodadaAtual++;
-                    }
-
-                    var p = participantesSorted[combate.TurnoAtualIndex];
-                    bool isMorto = (p.IsInimigo && p.VidaAtual <= 0) || (!p.IsInimigo && p.FalhasMorte >= 3);
-                    if (!isMorto) break;
-
-                } while (combate.TurnoAtualIndex != originalIndex);
-
-                await _uof.CombateRepository.UpdateCombateAsync(combate);
                 await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
             }
             return NoContent();
@@ -185,6 +180,7 @@ namespace Wyvern.Api.Controllers
             participante.FalhasMorte = dto.FalhasMorte;
 
             await _uof.CombateRepository.UpdateParticipanteAsync(participante);
+            await _uof.CommitAsync();
             await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
             return NoContent();
         }

@@ -2,7 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Pericia;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Wyvern.Api.Controllers
@@ -50,6 +50,7 @@ namespace Wyvern.Api.Controllers
         }
         var pericia = _mapper.Map<Pericia>(periciaDto);
         await _uof.PericiaRepository.CreatePericiaAsync(pericia);
+        await _uof.CommitAsync();
         var periciaCriadaDto = _mapper.Map<PericiaResponseDto>(pericia);
         return CreatedAtAction(nameof(GetPericiaById), new { id = pericia.PericiaId }, periciaCriadaDto);
     }
@@ -61,6 +62,7 @@ namespace Wyvern.Api.Controllers
         if (periciaBanco == null) return NotFound("Perícia não encontrada.");
         _mapper.Map(periciaDto, periciaBanco);
         await _uof.PericiaRepository.UpdatePericiaAsync(periciaBanco);
+        await _uof.CommitAsync();
         return Ok(_mapper.Map<PericiaResponseDto>(periciaBanco));
     }
 
@@ -69,6 +71,7 @@ namespace Wyvern.Api.Controllers
     {
         var pericia = await _uof.PericiaRepository.DeletePericiaAsync(id);
         if (pericia == null) return NotFound("Perícia não encontrada.");
+        await _uof.CommitAsync();
         return Ok(new { mensagem = "Perícia desativada", id });
     }
 }

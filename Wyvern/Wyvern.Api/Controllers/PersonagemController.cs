@@ -2,9 +2,10 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Personagem;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Wyvern.Domain.Interfaces;
+using Wyvern.Application.Services;
 
 namespace Wyvern.Api.Controllers
 {
@@ -16,12 +17,14 @@ namespace Wyvern.Api.Controllers
         private readonly IUnitOfWork _uof;
         private readonly IMapper _mapper;
         private readonly ICurrentUserService _currentUser;
+        private readonly ICampanhaAuthorizationService _campanhaAuth;
 
-        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser)
+        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth)
         {
             _uof = uof;
             _mapper = mapper;
             _currentUser = currentUser;
+            _campanhaAuth = campanhaAuth;
         }
 
         [HttpGet]
@@ -63,7 +66,7 @@ namespace Wyvern.Api.Controllers
             personagem.Ativo = true;
 
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(personagemDto.CampanhaId);
-            bool isMestre = campanha != null && campanha.MestreId == _currentUser.UserId;
+            bool isMestre = _campanhaAuth.IsMestre(campanha, _currentUser.UserId);
 
             if (!isMestre)
             {
@@ -81,8 +84,8 @@ namespace Wyvern.Api.Controllers
             }
 
             await _uof.PersonagemRepository.CreatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
 
-            
             var retorno = await _uof.PersonagemRepository.GetPersonagemAsync(personagem.PersonagemId);
 
             if (retorno == null)
@@ -211,6 +214,7 @@ namespace Wyvern.Api.Controllers
             }
 
             await _uof.PersonagemRepository.UpdatePersonagemAsync(pBanco);
+            await _uof.CommitAsync();
             return Ok(_mapper.Map<PersonagemResponseDto>(pBanco));
         }
 
@@ -219,22 +223,35 @@ namespace Wyvern.Api.Controllers
         {
             var personagem = await _uof.PersonagemRepository.DeletePersonagemAsync(id);
             if (personagem == null) return NotFound("Personagem não encontrado");
+            await _uof.CommitAsync();
             return Ok(new { mensagem = "Personagem desativado com sucesso", id });
         }
 
         [HttpPost("import-pdf")]
-        public async Task<ActionResult<PersonagemResponseDto>> ImportPdf(IFormFile file, [FromServices] Wyvern.Application.Services.IPdfParserService pdfParserService)
+        public async Task<ActionResult<PersonagemResponseDto>> ImportPdf(IFormFile file, [FromForm] int campanhaId, [FromServices] Wyvern.Application.Services.IPdfParserService pdfParserService)
         {
             if (file == null || file.Length == 0) return BadRequest("Nenhum arquivo enviado.");
+
+            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(campanhaId);
+            if (campanha == null) return BadRequest("Campanha inválida ou você não tem acesso a ela.");
+
+            if (!_currentUser.UserId.HasValue) return Unauthorized();
 
             try
             {
                 using var stream = file.OpenReadStream();
-                var personagem = pdfParserService.ParsePdf(stream);
-                
+                var personagem = pdfParserService.ParsePdf(stream, campanhaId, _currentUser.UserId.Value);
+
+                if (!_campanhaAuth.IsMestre(campanha, _currentUser.UserId))
+                {
+                    personagem.TipoId = 1;
+                    personagem.PersonagemNpc = null;
+                }
+
                 // Salvar no banco
                 await _uof.PersonagemRepository.CreatePersonagemAsync(personagem);
-                
+                await _uof.CommitAsync();
+
                 var retorno = await _uof.PersonagemRepository.GetPersonagemAsync(personagem.PersonagemId);
                 var retornoDto = _mapper.Map<PersonagemResponseDto>(retorno);
                 
@@ -275,7 +292,8 @@ namespace Wyvern.Api.Controllers
             item.PersonagemId = id;
             p.PersonagemItens.Add(item);
             await _uof.PersonagemRepository.UpdatePersonagemAsync(p);
-            
+            await _uof.CommitAsync();
+
             return Ok();
         }
 
@@ -290,6 +308,7 @@ namespace Wyvern.Api.Controllers
             {
                 p.PersonagemItens!.Remove(item);
                 await _uof.PersonagemRepository.UpdatePersonagemAsync(p);
+                await _uof.CommitAsync();
             }
             return Ok();
         }
@@ -305,7 +324,8 @@ namespace Wyvern.Api.Controllers
             magia.PersonagemId = id;
             p.PersonagemMagias.Add(magia);
             await _uof.PersonagemRepository.UpdatePersonagemAsync(p);
-            
+            await _uof.CommitAsync();
+
             return Ok();
         }
 
@@ -320,6 +340,7 @@ namespace Wyvern.Api.Controllers
             {
                 p.PersonagemMagias!.Remove(magia);
                 await _uof.PersonagemRepository.UpdatePersonagemAsync(p);
+                await _uof.CommitAsync();
             }
             return Ok();
         }
@@ -335,7 +356,8 @@ namespace Wyvern.Api.Controllers
             ataque.PersonagemId = id;
             p.PersonagemAtaques.Add(ataque);
             await _uof.PersonagemRepository.UpdatePersonagemAsync(p);
-            
+            await _uof.CommitAsync();
+
             return Ok();
         }
 
@@ -350,6 +372,7 @@ namespace Wyvern.Api.Controllers
             {
                 p.PersonagemAtaques!.Remove(ataque);
                 await _uof.PersonagemRepository.UpdatePersonagemAsync(p);
+                await _uof.CommitAsync();
             }
             return Ok();
         }

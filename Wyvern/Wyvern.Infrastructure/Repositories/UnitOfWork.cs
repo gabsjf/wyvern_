@@ -11,6 +11,17 @@ using Wyvern.Infrastructure.Repositories.Combate;
 using Wyvern.Infrastructure.Repositories.Anotacao;
 using Wyvern.Infrastructure.Repositories.PastaAnotacao;
 using Wyvern.Domain.Interfaces;
+using Wyvern.Domain.Interfaces.Repositories;
+using Wyvern.Domain.Interfaces.Repositories.Campanha;
+using Wyvern.Domain.Interfaces.Repositories.Item;
+using Wyvern.Domain.Interfaces.Repositories.Magia;
+using Wyvern.Domain.Interfaces.Repositories.Pericia;
+using Wyvern.Domain.Interfaces.Repositories.Personagem;
+using Wyvern.Domain.Interfaces.Repositories.Sessao;
+using Wyvern.Domain.Interfaces.Repositories.Usuario;
+using Wyvern.Domain.Interfaces.Repositories.Combate;
+using Wyvern.Domain.Interfaces.Repositories.Anotacao;
+using Wyvern.Domain.Interfaces.Repositories.PastaAnotacao;
 
 namespace Wyvern.Infrastructure.Repositories
 {

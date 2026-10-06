@@ -1,6 +1,6 @@
 using UsuarioEntity = Wyvern.Domain.Entities.Usuario;
 
-namespace Wyvern.Infrastructure.Repositories.Usuario
+namespace Wyvern.Domain.Interfaces.Repositories.Usuario
 {
     public interface IUsuarioRepository
     {

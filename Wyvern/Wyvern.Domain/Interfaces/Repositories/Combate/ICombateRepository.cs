@@ -3,7 +3,7 @@ using System.Threading.Tasks;
 using CombateEntity = Wyvern.Domain.Entities.Combate;
 using Wyvern.Domain.Entities;
 
-namespace Wyvern.Infrastructure.Repositories.Combate
+namespace Wyvern.Domain.Interfaces.Repositories.Combate
 {
     public interface ICombateRepository
     {

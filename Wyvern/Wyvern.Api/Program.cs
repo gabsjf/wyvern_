@@ -9,6 +9,7 @@ using Wyvern.Infrastructure.Data;
 using Wyvern.Infrastructure.Repositories;
 using Wyvern.Infrastructure.Repositories.Campanha;
 using Wyvern.Domain.Interfaces;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
@@ -32,6 +33,8 @@ builder.Services.AddScoped<IPdfParserService, PdfParserService>();
 builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();
+builder.Services.AddScoped<ICombateService, CombateService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();

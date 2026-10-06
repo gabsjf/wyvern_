@@ -2,6 +2,7 @@ using Microsoft.EntityFrameworkCore;
 using CampanhaEntity = Wyvern.Domain.Entities.Campanha;
 using Wyvern.Infrastructure.Data;
 using Wyvern.Domain.Interfaces;
+using Wyvern.Domain.Interfaces.Repositories.Campanha;
 
 namespace Wyvern.Infrastructure.Repositories.Campanha
 {
@@ -44,7 +45,7 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
                 .FirstOrDefaultAsync(c => c.TokenConvite == token && c.Ativo);
         }
 
-        public async Task<CampanhaEntity> CreateCampanhaAsync(CampanhaEntity campanha)
+        public Task<CampanhaEntity> CreateCampanhaAsync(CampanhaEntity campanha)
         {
             if (campanha is null)
                 throw new ArgumentNullException(nameof(campanha));
@@ -55,20 +56,18 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
             }
 
             _context.Campanhas.Add(campanha);
-            await _context.SaveChangesAsync();
 
-            return campanha;
+            return Task.FromResult(campanha);
         }
 
-        public async Task<CampanhaEntity> UpdateCampanhaAsync(CampanhaEntity campanha)
+        public Task<CampanhaEntity> UpdateCampanhaAsync(CampanhaEntity campanha)
         {
             if (campanha is null)
                 throw new ArgumentNullException(nameof(campanha));
 
             _context.Entry(campanha).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return campanha;
+            return Task.FromResult(campanha);
         }
 
         public async Task<CampanhaEntity> DeleteCampanhaAsync(int id)
@@ -79,7 +78,6 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
                 throw new ArgumentNullException(nameof(campanha));
 
             campanha.Ativo = false;
-            await _context.SaveChangesAsync();
 
             return campanha;
         }

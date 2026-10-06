@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using CombateEntity = Wyvern.Domain.Entities.Combate;
 using Wyvern.Infrastructure.Data;
+using Wyvern.Domain.Interfaces.Repositories.Combate;
 
 namespace Wyvern.Infrastructure.Repositories.Combate
 {
@@ -47,18 +48,16 @@ namespace Wyvern.Infrastructure.Repositories.Combate
                 throw new ArgumentNullException(nameof(combate));
 
             await _context.Combates.AddAsync(combate);
-            await _context.SaveChangesAsync();
         }
 
-        public async Task<CombateEntity> UpdateCombateAsync(CombateEntity combate)
+        public Task<CombateEntity> UpdateCombateAsync(CombateEntity combate)
         {
             if (combate is null)
                 throw new ArgumentNullException(nameof(combate));
 
             _context.Entry(combate).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return combate;
+            return Task.FromResult(combate);
         }
 
         public async Task<CombateEntity> DeleteCombateAsync(int id)
@@ -69,7 +68,6 @@ namespace Wyvern.Infrastructure.Repositories.Combate
                 throw new ArgumentNullException(nameof(combate));
 
             combate.Ativo = false;
-            await _context.SaveChangesAsync();
 
             return combate;
         }
@@ -83,15 +81,14 @@ namespace Wyvern.Infrastructure.Repositories.Combate
                 .FirstOrDefaultAsync();
         }
 
-        public async Task<Wyvern.Domain.Entities.CombateParticipante> UpdateParticipanteAsync(Wyvern.Domain.Entities.CombateParticipante participante)
+        public Task<Wyvern.Domain.Entities.CombateParticipante> UpdateParticipanteAsync(Wyvern.Domain.Entities.CombateParticipante participante)
         {
             if (participante is null)
                 throw new ArgumentNullException(nameof(participante));
 
             _context.Entry(participante).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return participante;
+            return Task.FromResult(participante);
         }
     }
 }

@@ -2,7 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Magia;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Wyvern.Api.Controllers
@@ -47,6 +47,7 @@ namespace Wyvern.Api.Controllers
         }
         var magia = _mapper.Map<Magia>(magiaDto);
         await _uof.MagiaRepository.CreateMagiaAsync(magia);
+        await _uof.CommitAsync();
         var magiaCriadaDto = _mapper.Map<MagiaResponseDto>(magia);
         return CreatedAtAction(nameof(GetMagiaById), new { id = magia.MagiaId }, magiaCriadaDto);
     }
@@ -58,6 +59,7 @@ namespace Wyvern.Api.Controllers
         if (magiaBanco == null) return NotFound("Magia não encontrada.");
         _mapper.Map(magiaDto,magiaBanco);
         await _uof.MagiaRepository.UpdateMagiaAsync(magiaBanco);
+        await _uof.CommitAsync();
         return Ok(_mapper.Map<MagiaResponseDto>(magiaBanco));
     }
 
@@ -68,6 +70,7 @@ namespace Wyvern.Api.Controllers
         if (magia == null) return NotFound("Magia não encontrada.");
 
         magia.Ativo = false;
+        await _uof.CommitAsync();
         return Ok(new { mensagem = "Magia desativada", id });
     }
 }

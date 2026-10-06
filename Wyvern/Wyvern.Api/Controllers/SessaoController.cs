@@ -2,7 +2,7 @@ using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Sessao;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Wyvern.Api.Controllers;
@@ -54,6 +54,7 @@ public class SessaoController : ControllerBase
 
         var sessao = _mapper.Map<Sessao>(sessaoDto);
         await _uof.SessaoRepository.CreateSessaoAsync(sessao);
+        await _uof.CommitAsync();
 
         var sessaoCompleta = await _uof.SessaoRepository.GetSessaoAsync(sessao.SessaoId);
         if (sessaoCompleta == null)
@@ -78,6 +79,7 @@ public class SessaoController : ControllerBase
         _mapper.Map(sessaoDto, sessaoBanco);
 
         await _uof.SessaoRepository.UpdateSessaoAsync(sessaoBanco);
+        await _uof.CommitAsync();
         var sessaoAtualizadaDto = _mapper.Map<SessaoResponseDto>(sessaoBanco);
         return Ok(sessaoAtualizadaDto);
     }
@@ -89,6 +91,7 @@ public class SessaoController : ControllerBase
         try
         {
             await _uof.SessaoRepository.DeleteSessaoAsync(id);
+            await _uof.CommitAsync();
             return Ok(new { mensagem = "Sessão deletada com sucesso" });
         }
         catch (ArgumentNullException)

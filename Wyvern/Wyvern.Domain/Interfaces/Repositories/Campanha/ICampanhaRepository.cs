@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using CampanhaEntity = Wyvern.Domain.Entities.Campanha;
 
-namespace Wyvern.Infrastructure.Repositories.Campanha
+namespace Wyvern.Domain.Interfaces.Repositories.Campanha
 {
    public interface ICampanhaRepository
     {

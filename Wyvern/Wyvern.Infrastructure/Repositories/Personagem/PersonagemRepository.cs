@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wyvern.Infrastructure.Data;
 using Wyvern.Domain.Interfaces;
+using Wyvern.Domain.Interfaces.Repositories.Personagem;
 using PersonagemEntity = Wyvern.Domain.Entities.Personagem;
 
 namespace Wyvern.Infrastructure.Repositories.Personagem
@@ -53,7 +54,7 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .FirstOrDefaultAsync(p => p.PersonagemId == id && p.Ativo && (p.CriadoPorId == _currentUser.UserId || p.Campanha.MestreId == _currentUser.UserId));
         }
 
-        public async Task<PersonagemEntity> CreatePersonagemAsync(PersonagemEntity personagem)
+        public Task<PersonagemEntity> CreatePersonagemAsync(PersonagemEntity personagem)
         {
             if (personagem is null)
                 throw new ArgumentNullException(nameof(personagem));
@@ -64,20 +65,18 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
             }
 
             _context.Personagens.Add(personagem);
-            await _context.SaveChangesAsync();
 
-            return personagem;
+            return Task.FromResult(personagem);
         }
 
-        public async Task<PersonagemEntity> UpdatePersonagemAsync(PersonagemEntity personagem)
+        public Task<PersonagemEntity> UpdatePersonagemAsync(PersonagemEntity personagem)
         {
             if (personagem is null)
                 throw new ArgumentNullException(nameof(personagem));
 
             _context.Entry(personagem).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return personagem;
+            return Task.FromResult(personagem);
         }
 
         public async Task<PersonagemEntity> DeletePersonagemAsync(int id)
@@ -88,7 +87,6 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 throw new ArgumentNullException(nameof(personagem));
 
             personagem.Ativo = false;
-            await _context.SaveChangesAsync();
 
             return personagem;
         }

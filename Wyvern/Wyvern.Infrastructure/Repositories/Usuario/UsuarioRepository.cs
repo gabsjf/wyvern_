@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wyvern.Infrastructure.Data;
 using UsuarioEntity = Wyvern.Domain.Entities.Usuario;
+using Wyvern.Domain.Interfaces.Repositories.Usuario;
 
 namespace Wyvern.Infrastructure.Repositories.Usuario
 {
@@ -34,26 +35,24 @@ namespace Wyvern.Infrastructure.Repositories.Usuario
                 .FirstOrDefaultAsync(u => u.Email == email && u.Ativo);
         }
 
-        public async Task<UsuarioEntity> CreateUsuarioAsync(UsuarioEntity usuario)
+        public Task<UsuarioEntity> CreateUsuarioAsync(UsuarioEntity usuario)
         {
             if (usuario is null)
                 throw new ArgumentNullException(nameof(usuario));
 
             _context.Usuarios.Add(usuario);
-            await _context.SaveChangesAsync();
 
-            return usuario;
+            return Task.FromResult(usuario);
         }
 
-        public async Task<UsuarioEntity> UpdateUsuarioAsync(UsuarioEntity usuario)
+        public Task<UsuarioEntity> UpdateUsuarioAsync(UsuarioEntity usuario)
         {
             if (usuario is null)
                 throw new ArgumentNullException(nameof(usuario));
 
             _context.Entry(usuario).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return usuario;
+            return Task.FromResult(usuario);
         }
 
         public async Task<UsuarioEntity> DeleteUsuarioAsync(int id)
@@ -64,7 +63,6 @@ namespace Wyvern.Infrastructure.Repositories.Usuario
                 throw new ArgumentNullException(nameof(usuario));
 
             usuario.Ativo = false;
-            await _context.SaveChangesAsync();
 
             return usuario;
         }

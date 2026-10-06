@@ -1,6 +1,6 @@
 using PericiaEntity = Wyvern.Domain.Entities.Pericia;
 
-namespace Wyvern.Infrastructure.Repositories.Pericia
+namespace Wyvern.Domain.Interfaces.Repositories.Pericia
 {
     public interface IPericiaRepository
     {

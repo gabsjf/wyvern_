@@ -4,9 +4,10 @@ using System.Linq;
 using System.Threading.Tasks;
 using Wyvern.Application.DTOs.Anotacao;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Wyvern.Domain.Interfaces;
+using Wyvern.Application.Services;
 
 namespace Wyvern.Api.Controllers
 {
@@ -17,18 +18,19 @@ namespace Wyvern.Api.Controllers
     {
         private readonly IUnitOfWork _uof;
         private readonly ICurrentUserService _currentUser;
+        private readonly ICampanhaAuthorizationService _campanhaAuth;
 
-        public AnotacaoController(IUnitOfWork uof, ICurrentUserService currentUser)
+        public AnotacaoController(IUnitOfWork uof, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth)
         {
             _uof = uof;
             _currentUser = currentUser;
+            _campanhaAuth = campanhaAuth;
         }
 
         [HttpGet("campanha/{campanhaId}")]
         public async Task<ActionResult<IEnumerable<AnotacaoResponseDto>>> GetAnotacoes(int campanhaId)
         {
-            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(campanhaId);
-            bool isMestre = campanha != null && campanha.MestreId == _currentUser.UserId;
+            bool isMestre = await _campanhaAuth.IsMestreAsync(campanhaId, _currentUser.UserId);
 
             var anotacoes = await _uof.AnotacaoRepository.GetAnotacoesByCampanhaAsync(campanhaId);
             
@@ -63,8 +65,7 @@ namespace Wyvern.Api.Controllers
             var a = await _uof.AnotacaoRepository.GetAnotacaoAsync(id);
             if (a == null) return NotFound("Anotação não encontrada");
 
-            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(a.CampanhaId);
-            bool isMestre = campanha != null && campanha.MestreId == _currentUser.UserId;
+            bool isMestre = await _campanhaAuth.IsMestreAsync(a.CampanhaId, _currentUser.UserId);
 
             if (!isMestre && !a.IsPublica && a.CriadoPorId != _currentUser.UserId)
             {
@@ -88,8 +89,7 @@ namespace Wyvern.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<AnotacaoResponseDto>> CreateAnotacao([FromBody] CreateAnotacaoDto dto)
         {
-            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(dto.CampanhaId);
-            bool isMestre = campanha != null && campanha.MestreId == _currentUser.UserId;
+            bool isMestre = await _campanhaAuth.IsMestreAsync(dto.CampanhaId, _currentUser.UserId);
 
             var novaAnotacao = new Wyvern.Domain.Entities.Anotacao
             {
@@ -103,6 +103,7 @@ namespace Wyvern.Api.Controllers
             };
 
             await _uof.AnotacaoRepository.CreateAnotacaoAsync(novaAnotacao);
+            await _uof.CommitAsync();
 
             var responseDto = new AnotacaoResponseDto
             {
@@ -125,8 +126,7 @@ namespace Wyvern.Api.Controllers
             var anotacao = await _uof.AnotacaoRepository.GetAnotacaoAsync(id);
             if (anotacao == null) return NotFound("Anotação não encontrada");
 
-            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(anotacao.CampanhaId);
-            bool isMestre = campanha != null && campanha.MestreId == _currentUser.UserId;
+            bool isMestre = await _campanhaAuth.IsMestreAsync(anotacao.CampanhaId, _currentUser.UserId);
 
             if (!isMestre && anotacao.CriadoPorId != _currentUser.UserId)
             {
@@ -144,6 +144,7 @@ namespace Wyvern.Api.Controllers
             anotacao.PastaId = dto.PastaId;
 
             await _uof.AnotacaoRepository.UpdateAnotacaoAsync(anotacao);
+            await _uof.CommitAsync();
             return NoContent();
         }
 
@@ -153,8 +154,7 @@ namespace Wyvern.Api.Controllers
             var anotacao = await _uof.AnotacaoRepository.GetAnotacaoAsync(id);
             if (anotacao == null) return NotFound("Anotação não encontrada");
 
-            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(anotacao.CampanhaId);
-            bool isMestre = campanha != null && campanha.MestreId == _currentUser.UserId;
+            bool isMestre = await _campanhaAuth.IsMestreAsync(anotacao.CampanhaId, _currentUser.UserId);
 
             if (!isMestre && anotacao.CriadoPorId != _currentUser.UserId)
             {
@@ -162,6 +162,7 @@ namespace Wyvern.Api.Controllers
             }
 
             await _uof.AnotacaoRepository.DeleteAnotacaoAsync(id);
+            await _uof.CommitAsync();
             return NoContent();
         }
     }

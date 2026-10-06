@@ -7,7 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Wyvern.Application.DTOs.Auth;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using BCrypt.Net;
 
 namespace Wyvern.Application.Services
@@ -41,6 +41,7 @@ namespace Wyvern.Application.Services
             };
 
             await _uof.UsuarioRepository.CreateUsuarioAsync(user);
+            await _uof.CommitAsync();
 
             var token = GenerateJwtToken(user);
 

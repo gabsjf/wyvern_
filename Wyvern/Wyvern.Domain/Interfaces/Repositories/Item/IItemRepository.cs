@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using ItemEntity = Wyvern.Domain.Entities.Item;
 
 
-namespace Wyvern.Infrastructure.Repositories.Item
+namespace Wyvern.Domain.Interfaces.Repositories.Item
 {
     public interface IItemRepository
     {

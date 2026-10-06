@@ -3,7 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using System.Linq;
 using System.Threading.Tasks;
 using Wyvern.Application.DTOs.Dashboard;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using AutoMapper;
 using Wyvern.Application.DTOs.Campanha;
 using Wyvern.Application.DTOs.Sessao;

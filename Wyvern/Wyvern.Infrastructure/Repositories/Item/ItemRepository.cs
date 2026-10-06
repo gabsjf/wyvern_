@@ -1,6 +1,7 @@
 ﻿using Microsoft.EntityFrameworkCore;
 using Wyvern.Infrastructure.Data;
 using ItemEntity = Wyvern.Domain.Entities.Item;
+using Wyvern.Domain.Interfaces.Repositories.Item;
 
 namespace Wyvern.Infrastructure.Repositories.Item
 {
@@ -22,7 +23,6 @@ namespace Wyvern.Infrastructure.Repositories.Item
                 throw new ArgumentNullException(nameof(item));
 
             item.Ativo = false;
-            await _context.SaveChangesAsync();
 
             return item;
         }
@@ -39,26 +39,24 @@ namespace Wyvern.Infrastructure.Repositories.Item
                 .ToListAsync();
         }
 
-        public async Task<ItemEntity> UpdateItemAsync(ItemEntity item)
+        public Task<ItemEntity> UpdateItemAsync(ItemEntity item)
         {
             if (item is null)
                 throw new ArgumentNullException(nameof(item));
 
             _context.Entry(item).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return item;
+            return Task.FromResult(item);
         }
 
-        public async Task<ItemEntity> CreateItemAsync(ItemEntity item)
+        public Task<ItemEntity> CreateItemAsync(ItemEntity item)
         {
             if (item is null)
                 throw new ArgumentNullException(nameof(item));
 
             _context.Itens.Add(item);
-            await _context.SaveChangesAsync();
 
-            return item;
+            return Task.FromResult(item);
         }
 
     }

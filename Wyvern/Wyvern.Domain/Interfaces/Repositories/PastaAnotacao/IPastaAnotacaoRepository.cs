@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
-namespace Wyvern.Infrastructure.Repositories.PastaAnotacao
+namespace Wyvern.Domain.Interfaces.Repositories.PastaAnotacao
 {
     public interface IPastaAnotacaoRepository
     {

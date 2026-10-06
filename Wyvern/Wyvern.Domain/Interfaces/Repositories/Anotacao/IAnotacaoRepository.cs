@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Threading.Tasks;
 using Wyvern.Domain.Entities;
 
-namespace Wyvern.Infrastructure.Repositories.Anotacao
+namespace Wyvern.Domain.Interfaces.Repositories.Anotacao
 {
     public interface IAnotacaoRepository
     {

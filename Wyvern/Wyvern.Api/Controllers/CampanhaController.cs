@@ -3,9 +3,10 @@ using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Campanha;
 using Wyvern.Application.DTOs.Sessao;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Wyvern.Domain.Interfaces;
+using Wyvern.Application.Services;
 using System.Security.Claims;
 
 namespace Wyvern.Api.Controllers
@@ -18,12 +19,14 @@ namespace Wyvern.Api.Controllers
         private readonly IUnitOfWork _uof;
         private readonly IMapper _mapper;
         private readonly ICurrentUserService _currentUserService;
+        private readonly ICampanhaAuthorizationService _campanhaAuth;
 
-        public CampanhaController(IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUserService)
+        public CampanhaController(IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUserService, ICampanhaAuthorizationService campanhaAuth)
         {
             _uof = uof;
             _mapper = mapper;
             _currentUserService = currentUserService;
+            _campanhaAuth = campanhaAuth;
         }
 
         [HttpGet]
@@ -37,8 +40,7 @@ namespace Wyvern.Api.Controllers
             foreach (var dto in campanhasDto)
             {
                 var camp = campanhas.First(c => c.CampanhaId == dto.CampanhaId);
-                if (camp.MestreId == currentUserId) dto.Papel = "Mestre";
-                else dto.Papel = "Jogador";
+                dto.Papel = _campanhaAuth.IsMestre(camp, currentUserId) ? "Mestre" : "Jogador";
             }
             
             return Ok(campanhasDto);
@@ -66,6 +68,7 @@ namespace Wyvern.Api.Controllers
             var campanha = _mapper.Map<Campanha>(campanhaDto);
 
             await _uof.CampanhaRepository.CreateCampanhaAsync(campanha);
+            await _uof.CommitAsync();
 
             var campanhaCompleta = await _uof.CampanhaRepository.GetCampanhaAsync(campanha.CampanhaId);
 
@@ -91,6 +94,7 @@ namespace Wyvern.Api.Controllers
             _mapper.Map(campanhaDto, campanhaNoBanco);
 
             await _uof.CampanhaRepository.UpdateCampanhaAsync(campanhaNoBanco);
+            await _uof.CommitAsync();
 
             var campanhaAtualizada = await _uof.CampanhaRepository.GetCampanhaAsync(id);
 
@@ -108,6 +112,7 @@ namespace Wyvern.Api.Controllers
             {
                 return BadRequest("Dados inválidos");
             }
+            await _uof.CommitAsync();
             return Ok("Campanha deletada com sucesso");
         }
 
@@ -119,11 +124,12 @@ namespace Wyvern.Api.Controllers
             if (campanha == null) return NotFound("Campanha não encontrada");
             
             var currentUserId = _currentUserService.UserId;
-            if (campanha.MestreId != currentUserId) return Forbid("Apenas o Mestre pode gerar convites.");
+            if (!_campanhaAuth.IsMestre(campanha, currentUserId)) return Forbid("Apenas o Mestre pode gerar convites.");
 
             campanha.TokenConvite = Guid.NewGuid().ToString("N");
             await _uof.CampanhaRepository.UpdateCampanhaAsync(campanha);
-            
+            await _uof.CommitAsync();
+
             return Ok(new { token = campanha.TokenConvite });
         }
 
@@ -137,7 +143,7 @@ namespace Wyvern.Api.Controllers
             var campanha = await _uof.CampanhaRepository.GetCampanhaByTokenAsync(token);
             
             if (campanha == null) return NotFound("Convite inválido ou expirado.");
-            if (campanha.MestreId == currentUserId) return BadRequest("Você já é o mestre desta campanha.");
+            if (_campanhaAuth.IsMestre(campanha, currentUserId)) return BadRequest("Você já é o mestre desta campanha.");
 
             // Since we don't have a direct CampanhaJogadorRepository in IUnitOfWork yet, we can use the DbContext directly for MVP
             // Let's assume we can inject DbContext or use a raw SQL / generic repo if available.
@@ -148,6 +154,7 @@ namespace Wyvern.Api.Controllers
             {
                 campanha.Jogadores.Add(new CampanhaJogador { UsuarioId = currentUserId.Value, CampanhaId = campanha.CampanhaId });
                 await _uof.CampanhaRepository.UpdateCampanhaAsync(campanha);
+                await _uof.CommitAsync();
             }
             
             return Ok(new { campanhaId = campanha.CampanhaId });

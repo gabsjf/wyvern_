@@ -5,6 +5,6 @@ namespace Wyvern.Application.Services
 {
     public interface IPdfParserService
     {
-        Personagem ParsePdf(Stream pdfStream);
+        Personagem ParsePdf(Stream pdfStream, int campanhaId, int criadoPorId);
     }
 }

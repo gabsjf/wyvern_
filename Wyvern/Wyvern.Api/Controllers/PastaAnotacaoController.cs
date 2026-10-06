@@ -4,7 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Wyvern.Application.DTOs.Anotacao;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 
 namespace Wyvern.Api.Controllers
@@ -48,6 +48,7 @@ namespace Wyvern.Api.Controllers
             };
 
             await _uof.PastaAnotacaoRepository.CreatePastaAsync(novaPasta);
+            await _uof.CommitAsync();
             return CreatedAtAction(nameof(GetPastaById), new { id = novaPasta.PastaId }, novaPasta);
         }
 
@@ -61,6 +62,7 @@ namespace Wyvern.Api.Controllers
             pasta.IsPublica = dto.IsPublica;
 
             await _uof.PastaAnotacaoRepository.UpdatePastaAsync(pasta);
+            await _uof.CommitAsync();
             return NoContent();
         }
 
@@ -68,6 +70,7 @@ namespace Wyvern.Api.Controllers
         public async Task<IActionResult> DeletePasta(int id)
         {
             await _uof.PastaAnotacaoRepository.DeletePastaAsync(id);
+            await _uof.CommitAsync();
             return NoContent();
         }
     }

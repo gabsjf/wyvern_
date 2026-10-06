@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 using MagiaEntity = Wyvern.Domain.Entities.Magia;
 
 
-namespace Wyvern.Infrastructure.Repositories.Magia
+namespace Wyvern.Domain.Interfaces.Repositories.Magia
 {
     public interface IMagiaRepository
     {

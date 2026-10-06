@@ -21,7 +21,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\Wyvern.Domain\Wyvern.Domain.csproj" />
-    <ProjectReference Include="..\Wyvern.Infrastructure\Wyvern.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

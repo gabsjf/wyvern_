@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Usuario;
 using Wyvern.Domain.Entities;
-using Wyvern.Infrastructure.Repositories;
+using Wyvern.Domain.Interfaces.Repositories;
 
 namespace Wyvern.Api.Controllers
 {
@@ -55,6 +55,7 @@ namespace Wyvern.Api.Controllers
             usuario.CriadoEm = DateTime.Now;
             usuario.Ativo = true;
             await _uof.UsuarioRepository.CreateUsuarioAsync(usuario);
+            await _uof.CommitAsync();
             var usuarioCriadoDto = _mapper.Map<UsuarioResponseDto>(usuario);
             return new CreatedAtRouteResult(nameof(GetUserById),new {id = usuario.UsuarioId},usuarioCriadoDto);
         }
@@ -69,6 +70,7 @@ namespace Wyvern.Api.Controllers
             }
             _mapper.Map(usuarioDto, usuarioBanco);
             await _uof.UsuarioRepository.UpdateUsuarioAsync(usuarioBanco);
+            await _uof.CommitAsync();
             return Ok(_mapper.Map<UsuarioResponseDto>(usuarioBanco));
         }
 
@@ -80,6 +82,7 @@ namespace Wyvern.Api.Controllers
             {
                 return NotFound("Usuário não encontrado");
             }
+            await _uof.CommitAsync();
             return Ok(_mapper.Map<UsuarioResponseDto>(user));
         }
     }

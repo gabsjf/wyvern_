@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Wyvern.Domain.Entities;
+using Wyvern.Domain.Interfaces.Repositories.Anotacao;
 using Wyvern.Infrastructure.Data;
 
 namespace Wyvern.Infrastructure.Repositories.Anotacao
@@ -29,16 +30,16 @@ namespace Wyvern.Infrastructure.Repositories.Anotacao
             return await _context.Anotacoes.FindAsync(id);
         }
 
-        public async Task CreateAnotacaoAsync(Wyvern.Domain.Entities.Anotacao anotacao)
+        public Task CreateAnotacaoAsync(Wyvern.Domain.Entities.Anotacao anotacao)
         {
             _context.Anotacoes.Add(anotacao);
-            await _context.SaveChangesAsync();
+            return Task.CompletedTask;
         }
 
-        public async Task UpdateAnotacaoAsync(Wyvern.Domain.Entities.Anotacao anotacao)
+        public Task UpdateAnotacaoAsync(Wyvern.Domain.Entities.Anotacao anotacao)
         {
             _context.Anotacoes.Update(anotacao);
-            await _context.SaveChangesAsync();
+            return Task.CompletedTask;
         }
 
         public async Task DeleteAnotacaoAsync(int id)
@@ -47,7 +48,6 @@ namespace Wyvern.Infrastructure.Repositories.Anotacao
             if (anotacao != null)
             {
                 _context.Anotacoes.Remove(anotacao);
-                await _context.SaveChangesAsync();
             }
         }
     }

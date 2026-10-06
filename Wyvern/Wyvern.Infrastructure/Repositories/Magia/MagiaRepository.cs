@@ -6,6 +6,7 @@ using System.Text;
 using Wyvern.Domain.Entities;
 using Wyvern.Infrastructure.Data;
 using MagiaEntity = Wyvern.Domain.Entities.Magia;
+using Wyvern.Domain.Interfaces.Repositories.Magia;
 
 
 namespace Wyvern.Infrastructure.Repositories.Magia
@@ -18,24 +19,22 @@ namespace Wyvern.Infrastructure.Repositories.Magia
             _context = context;
         }
 
-        public async Task<MagiaEntity> CreateMagiaAsync(MagiaEntity magia)
+        public Task<MagiaEntity> CreateMagiaAsync(MagiaEntity magia)
         {
             if (magia is null)
                 throw new ArgumentNullException(nameof(magia));
 
             _context.Magias.Add(magia);
-            await _context.SaveChangesAsync();
-            return magia;
+            return Task.FromResult(magia);
         }
 
-        
+
         public async Task<MagiaEntity> DeleteMagiaAsync(int id)
         {
             var magia = await _context.Magias.FindAsync(id);
             if (magia is null)
                 throw new ArgumentNullException(nameof(magia));
             magia.Ativo = false;
-            await _context.SaveChangesAsync();
             return magia;
         }
 
@@ -52,15 +51,14 @@ namespace Wyvern.Infrastructure.Repositories.Magia
                     .ToListAsync();
         }
 
-        public async Task<MagiaEntity> UpdateMagiaAsync(MagiaEntity magia)
+        public Task<MagiaEntity> UpdateMagiaAsync(MagiaEntity magia)
         {
             if (magia is null)
                 throw new ArgumentNullException(nameof(magia));
 
             _context.Entry(magia).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return magia;
+            return Task.FromResult(magia);
         }
     }
 }

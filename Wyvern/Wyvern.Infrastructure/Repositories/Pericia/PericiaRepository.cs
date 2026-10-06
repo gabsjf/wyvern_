@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using Wyvern.Infrastructure.Data;
 using PericiaEntity = Wyvern.Domain.Entities.Pericia;
+using Wyvern.Domain.Interfaces.Repositories.Pericia;
 
 namespace Wyvern.Infrastructure.Repositories.Pericia
 {
@@ -25,26 +26,24 @@ namespace Wyvern.Infrastructure.Repositories.Pericia
             return await _context.Pericias.FirstOrDefaultAsync(p => p.PericiaId == id && p.Ativo);
         }
 
-        public async Task<PericiaEntity> CreatePericiaAsync(PericiaEntity pericia)
+        public Task<PericiaEntity> CreatePericiaAsync(PericiaEntity pericia)
         {
             if (pericia is null)
                 throw new ArgumentNullException(nameof(pericia));
 
             _context.Pericias.Add(pericia);
-            await _context.SaveChangesAsync();
 
-            return pericia;
+            return Task.FromResult(pericia);
         }
 
-        public async Task<PericiaEntity> UpdatePericiaAsync(PericiaEntity pericia)
+        public Task<PericiaEntity> UpdatePericiaAsync(PericiaEntity pericia)
         {
             if (pericia is null)
                 throw new ArgumentNullException(nameof(pericia));
 
             _context.Entry(pericia).State = EntityState.Modified;
-            await _context.SaveChangesAsync();
 
-            return pericia;
+            return Task.FromResult(pericia);
         }
 
         public async Task<PericiaEntity> DeletePericiaAsync(int id)
@@ -55,7 +54,6 @@ namespace Wyvern.Infrastructure.Repositories.Pericia
                 throw new ArgumentNullException(nameof(pericia));
 
             pericia.Ativo = false;
-            await _context.SaveChangesAsync();
 
             return pericia;
         }

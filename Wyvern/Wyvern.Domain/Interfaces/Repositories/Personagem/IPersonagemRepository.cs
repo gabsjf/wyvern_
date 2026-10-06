@@ -1,6 +1,6 @@
 using PersonagemEntity = Wyvern.Domain.Entities.Personagem;
 
-namespace Wyvern.Infrastructure.Repositories.Personagem
+namespace Wyvern.Domain.Interfaces.Repositories.Personagem
 {
     public interface IPersonagemRepository
     {

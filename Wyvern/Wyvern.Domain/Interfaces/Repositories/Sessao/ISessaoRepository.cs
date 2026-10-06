@@ -1,6 +1,6 @@
 using SessaoEntity = Wyvern.Domain.Entities.Sessao;
 
-namespace Wyvern.Infrastructure.Repositories.Sessao
+namespace Wyvern.Domain.Interfaces.Repositories.Sessao
 {
     public interface ISessaoRepository
     {

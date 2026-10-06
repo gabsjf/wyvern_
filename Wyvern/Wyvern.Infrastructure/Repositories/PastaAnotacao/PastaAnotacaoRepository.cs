@@ -3,6 +3,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.EntityFrameworkCore;
 using Wyvern.Infrastructure.Data;
+using Wyvern.Domain.Interfaces.Repositories.PastaAnotacao;
 
 namespace Wyvern.Infrastructure.Repositories.PastaAnotacao
 {
@@ -31,13 +32,12 @@ namespace Wyvern.Infrastructure.Repositories.PastaAnotacao
         public async Task CreatePastaAsync(Domain.Entities.PastaAnotacao pasta)
         {
             await _context.PastasAnotacao.AddAsync(pasta);
-            await _context.SaveChangesAsync();
         }
 
-        public async Task UpdatePastaAsync(Domain.Entities.PastaAnotacao pasta)
+        public Task UpdatePastaAsync(Domain.Entities.PastaAnotacao pasta)
         {
             _context.PastasAnotacao.Update(pasta);
-            await _context.SaveChangesAsync();
+            return Task.CompletedTask;
         }
 
         public async Task DeletePastaAsync(int id)
@@ -46,7 +46,6 @@ namespace Wyvern.Infrastructure.Repositories.PastaAnotacao
             if (pasta != null)
             {
                 _context.PastasAnotacao.Remove(pasta);
-                await _context.SaveChangesAsync();
             }
         }
     }
