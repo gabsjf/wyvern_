@@ -122,8 +122,10 @@ namespace Wyvern.Api.Controllers
             return Ok("Campanha deletada com sucesso");
         }
 
+        // O link é estável: chamar de novo devolve o mesmo token, então links já enviados continuam valendo.
+        // Só "renovar=true" troca o token (e invalida o link anterior).
         [HttpPost("{id:int}/generate-invite")]
-        public async Task<ActionResult> GenerateInvite(int id)
+        public async Task<ActionResult> GenerateInvite(int id, [FromQuery] bool renovar = false)
         {
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(id);
             if (campanha == null) return NotFound("Campanha não encontrada");
@@ -132,11 +134,30 @@ namespace Wyvern.Api.Controllers
             if (!_campanhaAuth.IsMestre(campanha, currentUserId))
                 return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre pode gerar convites.");
 
-            campanha.TokenConvite = Guid.NewGuid().ToString("N");
-            await _uof.CampanhaRepository.UpdateCampanhaAsync(campanha);
-            await _uof.CommitAsync();
+            if (renovar || string.IsNullOrEmpty(campanha.TokenConvite))
+            {
+                campanha.TokenConvite = Guid.NewGuid().ToString("N");
+                await _uof.CampanhaRepository.UpdateCampanhaAsync(campanha);
+                await _uof.CommitAsync();
+            }
 
             return Ok(new { token = campanha.TokenConvite });
+        }
+
+        // Desativa o link atual sem gerar outro.
+        [HttpDelete("{id:int}/invite")]
+        public async Task<ActionResult> RevokeInvite(int id)
+        {
+            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(id);
+            if (campanha == null) return NotFound("Campanha não encontrada");
+
+            if (!_campanhaAuth.IsMestre(campanha, _currentUserService.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre pode revogar convites.");
+
+            campanha.TokenConvite = null;
+            await _uof.CampanhaRepository.UpdateCampanhaAsync(campanha);
+            await _uof.CommitAsync();
+            return NoContent();
         }
 
         [HttpPost("join/{token}")]
