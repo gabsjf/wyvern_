@@ -301,7 +301,7 @@ namespace Wyvern.Api.Controllers
 
             try
             {
-                var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ficha55.pdf");
+                var templatePath = Path.Combine(AppContext.BaseDirectory, "Templates", "ficha55.pdf");
                 var pdfBytes = pdfExportService.ExportPdf(pBanco, templatePath);
                 return File(pdfBytes, "application/pdf", $"{pBanco.Nome ?? "Personagem"}.pdf");
             }

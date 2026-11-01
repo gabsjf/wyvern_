@@ -21,6 +21,11 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- O modelo de PDF da exportação precisa ir junto no build e no publish (imagem Docker); sem isto, exportar falha em produção. -->
+    <None Update="Templates\**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\Wyvern.Application\Wyvern.Application.csproj" />
     <ProjectReference Include="..\Wyvern.Infrastructure\Wyvern.Infrastructure.csproj" />
   </ItemGroup>
