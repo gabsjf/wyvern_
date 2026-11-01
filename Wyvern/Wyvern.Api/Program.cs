@@ -127,17 +127,18 @@ builder.Services.AddCors(options =>
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
+// PostgreSQL é o banco de produção. SQLite só existe para desenvolvimento local e testes e precisa ser
+// pedido explicitamente (Database:Provider = Sqlite), para nunca ser escolhido por engano em produção.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Configure ConnectionStrings:DefaultConnection (variável ConnectionStrings__DefaultConnection).");
+var usarSqlite = string.Equals(builder.Configuration["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
+
 builder.Services.AddDbContext<WyvernDbContext>(options =>
 {
-    if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase))
-    {
-        options.UseNpgsql(connectionString);
-    }
-    else
-    {
+    if (usarSqlite)
         options.UseSqlite(connectionString);
-    }
+    else
+        options.UseNpgsql(connectionString);
 });
 builder.Services.AddScoped<CampanhaRepository>();
 var app = builder.Build();
@@ -145,7 +146,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<WyvernDbContext>();
-    db.Database.EnsureCreated();
+    await DatabaseInitializer.InitializeAsync(db, app.Logger);
 }
 
 if (app.Environment.IsDevelopment())

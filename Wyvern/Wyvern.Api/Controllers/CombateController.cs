@@ -175,6 +175,10 @@ namespace Wyvern.Api.Controllers
                 }
             }
 
+            // Uma sessão só pode ter um combate ativo (o banco também garante, por índice único).
+            if (sessaoId != 0 && await _uof.CombateRepository.GetActiveCombateBySessaoAsync(sessaoId) != null)
+                return Problem(statusCode: StatusCodes.Status409Conflict, detail: "Já existe um combate ativo nesta sessão. Encerre-o antes de iniciar outro.");
+
             var combate = new Wyvern.Domain.Entities.Combate
             {
                 SessaoId = sessaoId,

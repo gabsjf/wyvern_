@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Npgsql;
 using Wyvern.Domain.Exceptions;
 
 namespace Wyvern.Api.Extensions
@@ -24,6 +26,12 @@ namespace Wyvern.Api.Extensions
                     var (status, titulo, detalhe) = erro switch
                     {
                         RegraNegocioException regra => (StatusCodes.Status400BadRequest, "Requisição inválida.", regra.Message),
+                        // Dois pedidos alteraram o mesmo registro ao mesmo tempo (ex.: "próximo turno" duplo).
+                        DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflito de edição.",
+                            "Este registro foi alterado por outra pessoa. Recarregue e tente de novo."),
+                        // Restrição única violada numa corrida (ex.: entrar duas vezes na campanha ao mesmo tempo).
+                        DbUpdateException { InnerException: PostgresException { SqlState: PostgresErrorCodes.UniqueViolation } } =>
+                            (StatusCodes.Status409Conflict, "Registro duplicado.", "Este registro já existe."),
                         _ => (StatusCodes.Status500InternalServerError, "Erro interno do servidor.", (string?)null)
                     };
 

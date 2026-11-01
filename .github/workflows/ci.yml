@@ -1,0 +1,26 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Wyvern
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Restaurar ferramentas e pacotes
+        run: |
+          dotnet tool restore
+          dotnet restore
+      - name: Build
+        run: dotnet build --no-restore -c Release
+      - name: Testes (inclui integração com SQLite e checagem de migrations)
+        run: dotnet test --no-build -c Release

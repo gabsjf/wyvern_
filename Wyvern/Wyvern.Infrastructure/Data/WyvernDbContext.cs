@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 using Wyvern.Domain.Entities;
 
 namespace Wyvern.Infrastructure.Data
@@ -177,6 +178,37 @@ namespace Wyvern.Infrastructure.Data
 
             // 4. Mapeamento Manual de Nomes de Tabela
             modelBuilder.Entity<Usuario>().ToTable("Usuario");
+
+            // Integridade que antes só existia na checagem da aplicação (sujeita a corrida entre requisições)
+            modelBuilder.Entity<Usuario>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<Campanha>()
+                .HasIndex(c => c.TokenConvite)
+                .IsUnique();
+
+            modelBuilder.Entity<CampanhaJogador>()
+                .HasIndex(cj => new { cj.CampanhaId, cj.UsuarioId })
+                .IsUnique();
+
+            // No máximo um combate ativo por sessão
+            var filtroAtivo = Database.IsNpgsql() ? "\"Ativo\" = true" : "\"Ativo\" = 1";
+            modelBuilder.Entity<Combate>()
+                .HasIndex(c => c.SessaoId)
+                .IsUnique()
+                .HasFilter(filtroAtivo);
+
+            // Concorrência otimista no combate (dois "próximo turno" simultâneos não se atropelam).
+            // xmin é uma coluna de sistema do PostgreSQL: não gera coluna nova no banco.
+            if (Database.IsNpgsql())
+            {
+                modelBuilder.Entity<Combate>()
+                    .Property<uint>("xmin")
+                    .HasColumnType("xid")
+                    .ValueGeneratedOnAddOrUpdate()
+                    .IsConcurrencyToken();
+            }
 
             // 5. Seed Data
             modelBuilder.Entity<TipoPersonagem>().HasData(
