@@ -272,6 +272,20 @@ namespace Wyvern.Api.Controllers
                 using var stream = file.OpenReadStream();
                 var personagem = pdfParserService.ParsePdf(stream, campanhaId, _currentUser.UserId.Value);
 
+                // O PDF traz perícias só pelo nome: liga ao cadastro (aceita "Lidar com" / "Adestrar Animais") e ignora o que não existe.
+                if (personagem.PersonagemPericias?.Count > 0)
+                {
+                    var catalogo = (await _uof.PericiaRepository.GetPericiasAsync()).ToList();
+                    var ligadas = new List<PersonagemPericia>();
+                    foreach (var pp in personagem.PersonagemPericias)
+                    {
+                        var achada = catalogo.FirstOrDefault(c => Wyvern.Application.Services.FichaPdfMapper.MesmaPericia(c.Nome, pp.Pericia?.Nome));
+                        if (achada == null || ligadas.Any(l => l.PericiaId == achada.PericiaId)) continue;
+                        ligadas.Add(new PersonagemPericia { PericiaId = achada.PericiaId, Bonus = pp.Bonus, Proficiente = true });
+                    }
+                    personagem.PersonagemPericias = ligadas;
+                }
+
                 if (!await _campanhaAuth.IsMestreAsync(campanhaId, _currentUser.UserId))
                 {
                     personagem.TipoId = 1;

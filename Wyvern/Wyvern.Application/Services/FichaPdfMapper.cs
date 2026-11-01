@@ -17,10 +17,10 @@ namespace Wyvern.Application.Services
     /// </summary>
     public static class FichaPdfMapper
     {
-        private record PericiaPdf(string[] Nomes, string Campo, string Caixa, string Atributo);
+        internal record PericiaPdf(string[] Nomes, string Campo, string Caixa, string Atributo);
 
         // Nomes em português (como no cadastro de perícias) e o campo/caixa correspondente no modelo.
-        private static readonly PericiaPdf[] Pericias =
+        internal static readonly PericiaPdf[] Pericias =
         {
             new(new[] { "acrobacia" }, "Acrobatics", "Check Box 23", "des"),
             new(new[] { "lidar com animais", "adestrar animais" }, "Animal", "Check Box 24", "sab"),
@@ -43,7 +43,7 @@ namespace Wyvern.Application.Services
         };
 
         // Salvaguardas: campo do valor e caixa de proficiência (na ordem FOR, DES, CON, INT, SAB, CAR).
-        private static readonly (string Atributo, string Campo, string Caixa)[] Salvaguardas =
+        internal static readonly (string Atributo, string Campo, string Caixa)[] Salvaguardas =
         {
             ("for", "ST Strength", "Check Box 11"),
             ("des", "ST Dexterity", "Check Box 18"),
@@ -53,7 +53,7 @@ namespace Wyvern.Application.Services
             ("car", "ST Charisma", "Check Box 22"),
         };
 
-        private static readonly (string Atributo, string Pontuacao, string Modificador)[] CamposAtributos =
+        internal static readonly (string Atributo, string Pontuacao, string Modificador)[] CamposAtributos =
         {
             ("for", "STR", "STRmod"),
             ("des", "DEX", "DEXmod"),
@@ -64,7 +64,7 @@ namespace Wyvern.Application.Services
         };
 
         // Linhas de magia da página 3, de cima para baixo, por nível (0 = truques).
-        private static readonly Dictionary<int, string[]> LinhasDeMagia = new()
+        internal static readonly Dictionary<int, string[]> LinhasDeMagia = new()
         {
             [0] = new[] { "Spells 1014", "Spells 1016", "Spells 1017", "Spells 1018", "Spells 1019", "Spells 1020", "Spells 1021", "Spells 1022" },
             [1] = new[] { "Spells 1015", "Spells 1023", "Spells 1024", "Spells 1025", "Spells 1026", "Spells 1027", "Spells 1028", "Spells 1029", "Spells 1030", "Spells 1031", "Spells 1032", "Spells 1033" },
@@ -285,6 +285,14 @@ namespace Wyvern.Application.Services
             return new FichaPreenchida(t, c);
         }
 
+        /// <summary>Duas grafias de perícia (ex.: "Lidar com Animais" e "Adestrar Animais") são a mesma?</summary>
+        public static bool MesmaPericia(string? a, string? b)
+        {
+            var na = Normalizar(a); var nb = Normalizar(b);
+            if (na == "" || nb == "") return false;
+            if (na == nb) return true;
+            return Pericias.Any(x => x.Nomes.Contains(na) && x.Nomes.Contains(nb));
+        }
         // ---------- ataque: mesma conta mostrada na ficha da tela ----------
         private static (string Bonus, string Dano) CalcularAtaque(PersonagemAtaque a, Atributo? atributo, int bonusProf)
         {
@@ -331,7 +339,7 @@ namespace Wyvern.Application.Services
             if (!string.IsNullOrWhiteSpace(valor)) destino[campo] = valor.Trim();
         }
 
-        private static string Primeiro(string? a, string? b) => !string.IsNullOrWhiteSpace(a) ? a! : (b ?? "");
+        internal static string Primeiro(string? a, string? b) => !string.IsNullOrWhiteSpace(a) ? a! : (b ?? "");
 
         private static bool EhNenhum(string valor) => Normalizar(valor) == "nenhum";
 

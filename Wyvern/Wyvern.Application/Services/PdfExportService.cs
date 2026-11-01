@@ -32,17 +32,17 @@ namespace Wyvern.Application.Services
             var acroForm = doc.Internals.Catalog.Elements.GetDictionary("/AcroForm")
                 ?? throw new InvalidOperationException("O template não possui campos de formulário (AcroForm).");
 
-            var campos = ColetarCampos(acroForm);
+            var campos = PdfCampos.Coletar(acroForm);
 
             foreach (var (nome, valor) in ficha.Textos)
             {
-                if (campos.TryGetValue(FichaPdfMapper.Normalizar(nome), out var campo))
+                if (campos.TryGetValue(PdfCampos.NormalizarNome(nome), out var campo))
                     DefinirTexto(campo, valor);
             }
 
             foreach (var (nome, marcada) in ficha.Caixas)
             {
-                if (campos.TryGetValue(FichaPdfMapper.Normalizar(nome), out var campo))
+                if (campos.TryGetValue(PdfCampos.NormalizarNome(nome), out var campo))
                     DefinirCaixa(campo, marcada);
             }
 
@@ -53,45 +53,6 @@ namespace Wyvern.Application.Services
             doc.Save(ms, false);
             return ms.ToArray();
         }
-
-        // Percorre a árvore de campos e indexa cada um pelo nome sem acentos e com espaços normalizados
-        // (o modelo tem nomes como "Race " e "Wpn3 AtkBonus  " com espaços sobrando).
-        private static Dictionary<string, PdfDictionary> ColetarCampos(PdfDictionary acroForm)
-        {
-            var resultado = new Dictionary<string, PdfDictionary>(StringComparer.Ordinal);
-            var raiz = acroForm.Elements.GetArray("/Fields");
-            if (raiz != null) Percorrer(raiz, prefixo: "", resultado);
-            return resultado;
-        }
-
-        private static void Percorrer(PdfArray itens, string prefixo, Dictionary<string, PdfDictionary> destino)
-        {
-            foreach (var item in itens.Elements)
-            {
-                var campo = (item as PdfReference)?.Value as PdfDictionary ?? item as PdfDictionary;
-                if (campo == null) continue;
-
-                var parcial = campo.Elements.GetString("/T");
-                var nome = string.IsNullOrEmpty(prefixo) ? parcial : string.IsNullOrEmpty(parcial) ? prefixo : prefixo + "." + parcial;
-
-                var filhos = campo.Elements.GetArray("/Kids");
-                var filhosSaoCampos = filhos != null && filhos.Elements.Any(k =>
-                    ((k as PdfReference)?.Value as PdfDictionary)?.Elements.ContainsKey("/T") == true);
-
-                if (filhosSaoCampos)
-                {
-                    Percorrer(filhos!, nome, destino);
-                    continue;
-                }
-
-                if (!string.IsNullOrWhiteSpace(nome))
-                    destino.TryAdd(NormalizarNome(nome), campo);
-            }
-        }
-
-        // Mesma regra do mapeador: minúsculas/sem acento, e espaços repetidos viram um só.
-        private static string NormalizarNome(string nome) =>
-            FichaPdfMapper.Normalizar(string.Join(' ', nome.Split(' ', StringSplitOptions.RemoveEmptyEntries)));
 
         private static void DefinirTexto(PdfDictionary campo, string valor)
         {
