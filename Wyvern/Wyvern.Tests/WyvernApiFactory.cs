@@ -18,8 +18,17 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
         // UseSetting vale desde o início; ConfigureAppConfiguration chegaria depois de o Program.cs ler a chave JWT.
-        builder.UseSetting("Database:Provider", "Sqlite");
-        builder.UseSetting("ConnectionStrings:DefaultConnection", $"Data Source={_dbPath}");
+        if (PostgresTestes.ConnectionString is { } postgres)
+        {
+            // Mesmo caminho de produção: PostgreSQL + migrations.
+            builder.UseSetting("Database:Provider", "Postgres");
+            builder.UseSetting("ConnectionStrings:DefaultConnection", postgres);
+        }
+        else
+        {
+            builder.UseSetting("Database:Provider", "Sqlite");
+            builder.UseSetting("ConnectionStrings:DefaultConnection", $"Data Source={_dbPath}");
+        }
         builder.UseSetting("Jwt:Key", "chave-de-teste-com-mais-de-trinta-e-dois-caracteres");
         builder.UseSetting("RateLimit:AuthPermitLimit", AuthPermitLimit.ToString());
     }
