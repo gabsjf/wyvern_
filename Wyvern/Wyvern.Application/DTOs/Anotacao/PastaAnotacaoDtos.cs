@@ -22,5 +22,7 @@ namespace Wyvern.Application.DTOs.Anotacao
         public string Nome { get; set; } = string.Empty;
         public bool IsPublica { get; set; }
         public DateTime CriadoEm { get; set; }
+        /// <summary>Autor da pasta; nulo em pastas antigas.</summary>
+        public int? CriadoPorId { get; set; }
     }
 }

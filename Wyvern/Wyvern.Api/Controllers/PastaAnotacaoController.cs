@@ -33,7 +33,8 @@ namespace Wyvern.Api.Controllers
             CampanhaId = p.CampanhaId,
             Nome = p.Nome,
             IsPublica = p.IsPublica,
-            CriadoEm = p.CriadoEm
+            CriadoEm = p.CriadoEm,
+            CriadoPorId = p.CriadoPorId
         };
 
         private ActionResult NaoParticipa() =>
