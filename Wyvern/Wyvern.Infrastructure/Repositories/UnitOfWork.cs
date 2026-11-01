@@ -39,7 +39,7 @@ namespace Wyvern.Infrastructure.Repositories
             MagiaRepository = new MagiaRepository(_context);
             PericiaRepository = new PericiaRepository(_context);
             PersonagemRepository = new PersonagemRepository(_context, _currentUserService);
-            SessaoRepository = new SessaoRepository(_context);
+            SessaoRepository = new SessaoRepository(_context, _currentUserService);
             UsuarioRepository = new UsuarioRepository(_context);
             AnotacaoRepository = new AnotacaoRepository(_context);
             PastaAnotacaoRepository = new PastaAnotacaoRepository(_context);

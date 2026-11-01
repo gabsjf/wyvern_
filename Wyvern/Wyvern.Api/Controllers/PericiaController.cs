@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Pericia;
 using Wyvern.Domain.Entities;
@@ -41,6 +41,8 @@ namespace Wyvern.Api.Controllers
         return Ok(periciaDto);
     }
 
+    [Authorize(Policy = "CatalogoAdmin")]
+
     [HttpPost]
     public async Task<ActionResult<PericiaResponseDto>> CreatePericia(CreatePericiaDto periciaDto)
     {
@@ -55,6 +57,8 @@ namespace Wyvern.Api.Controllers
         return CreatedAtAction(nameof(GetPericiaById), new { id = pericia.PericiaId }, periciaCriadaDto);
     }
 
+    [Authorize(Policy = "CatalogoAdmin")]
+
     [HttpPut("{id:int}")]
     public async Task<ActionResult> UpdatePericia(int id, PericiaUpdateDto periciaDto)
     {
@@ -65,6 +69,8 @@ namespace Wyvern.Api.Controllers
         await _uof.CommitAsync();
         return Ok(_mapper.Map<PericiaResponseDto>(periciaBanco));
     }
+
+    [Authorize(Policy = "CatalogoAdmin")]
 
     [HttpDelete("{id:int}")]
     public async Task<ActionResult> DeletePericia(int id)

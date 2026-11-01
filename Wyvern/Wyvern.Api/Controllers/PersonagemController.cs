@@ -4,6 +4,7 @@ using Wyvern.Application.DTOs.Personagem;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Application.Services;
 
@@ -65,7 +66,11 @@ namespace Wyvern.Api.Controllers
             personagem.CriadoEm = DateTime.Now;
             personagem.Ativo = true;
 
+            // GetCampanhaAsync já filtra por participação: nulo significa que a campanha não existe ou o usuário não faz parte dela.
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(personagemDto.CampanhaId);
+            if (campanha == null)
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não participa desta campanha.");
+
             bool isMestre = _campanhaAuth.IsMestre(campanha, _currentUser.UserId);
 
             if (!isMestre)
@@ -102,6 +107,14 @@ namespace Wyvern.Api.Controllers
             var pBanco = await _uof.PersonagemRepository.GetPersonagemAsync(id);
 
             if (pBanco == null) return NotFound("Personagem não encontrado");
+
+            // Só o Mestre muda o tipo do personagem (Jogador/NPC/Monstro) ou mexe no bloco de NPC.
+            bool isMestre = _campanhaAuth.IsMestre(pBanco.Campanha, _currentUser.UserId);
+            if (!isMestre)
+            {
+                personagemDto.TipoId = pBanco.TipoId;
+                personagemDto.PersonagemNpc = null;
+            }
 
             pBanco.Nome = personagemDto.Nome;
             pBanco.Descricao = personagemDto.Descricao;
@@ -221,16 +234,33 @@ namespace Wyvern.Api.Controllers
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> DeletePersonagem(int id)
         {
-            var personagem = await _uof.PersonagemRepository.DeletePersonagemAsync(id);
-            if (personagem == null) return NotFound("Personagem não encontrado");
+            // GetPersonagemAsync só devolve personagens do próprio usuário ou de campanhas em que ele é Mestre.
+            var permitido = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (permitido == null) return NotFound("Personagem não encontrado");
+
+            await _uof.PersonagemRepository.DeletePersonagemAsync(id);
             await _uof.CommitAsync();
             return Ok(new { mensagem = "Personagem desativado com sucesso", id });
         }
 
+        private const long TamanhoMaximoPdf = 5 * 1024 * 1024;
+
         [HttpPost("import-pdf")]
+        [EnableRateLimiting("upload")]
+        [RequestSizeLimit(TamanhoMaximoPdf + 64 * 1024)]
         public async Task<ActionResult<PersonagemResponseDto>> ImportPdf(IFormFile file, [FromForm] int campanhaId, [FromServices] Wyvern.Application.Services.IPdfParserService pdfParserService)
         {
             if (file == null || file.Length == 0) return BadRequest("Nenhum arquivo enviado.");
+            if (file.Length > TamanhoMaximoPdf) return BadRequest("O PDF deve ter no máximo 5 MB.");
+
+            // Confere a assinatura "%PDF-" em vez de confiar na extensão ou no Content-Type.
+            var cabecalho = new byte[5];
+            using (var leitura = file.OpenReadStream())
+            {
+                if (await leitura.ReadAsync(cabecalho, 0, cabecalho.Length) < cabecalho.Length
+                    || System.Text.Encoding.ASCII.GetString(cabecalho) != "%PDF-")
+                    return BadRequest("O arquivo enviado não é um PDF válido.");
+            }
 
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(campanhaId);
             if (campanha == null) return BadRequest("Campanha inválida ou você não tem acesso a ela.");

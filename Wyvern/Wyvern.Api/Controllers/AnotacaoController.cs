@@ -30,19 +30,13 @@ namespace Wyvern.Api.Controllers
         [HttpGet("campanha/{campanhaId}")]
         public async Task<ActionResult<IEnumerable<AnotacaoResponseDto>>> GetAnotacoes(int campanhaId)
         {
-            bool isMestre = await _campanhaAuth.IsMestreAsync(campanhaId, _currentUser.UserId);
+            if (!await _campanhaAuth.IsMembroAsync(campanhaId, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não participa desta campanha.");
 
             var anotacoes = await _uof.AnotacaoRepository.GetAnotacoesByCampanhaAsync(campanhaId);
-            
-            if (!isMestre)
-            {
-                anotacoes = anotacoes.Where(a => a.IsPublica || a.CriadoPorId == _currentUser.UserId);
-            }
-            else
-            {
-                // Mestre não vê as notas dos jogadores
-                anotacoes = anotacoes.Where(a => a.IsPublica || a.CriadoPorId == _currentUser.UserId);
-            }
+
+            // Vale para Mestre e jogadores: o Mestre não lê as notas privadas dos jogadores.
+            anotacoes = anotacoes.Where(a => a.IsPublica || a.CriadoPorId == _currentUser.UserId);
 
             var result = anotacoes.Select(a => new AnotacaoResponseDto
             {
@@ -65,11 +59,14 @@ namespace Wyvern.Api.Controllers
             var a = await _uof.AnotacaoRepository.GetAnotacaoAsync(id);
             if (a == null) return NotFound("Anotação não encontrada");
 
+            if (!await _campanhaAuth.IsMembroAsync(a.CampanhaId, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não participa desta campanha.");
+
             bool isMestre = await _campanhaAuth.IsMestreAsync(a.CampanhaId, _currentUser.UserId);
 
             if (!isMestre && !a.IsPublica && a.CriadoPorId != _currentUser.UserId)
             {
-                return Forbid("Você não tem acesso a esta anotação.");
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não tem acesso a esta anotação.");
             }
 
             var dto = new AnotacaoResponseDto
@@ -89,7 +86,18 @@ namespace Wyvern.Api.Controllers
         [HttpPost]
         public async Task<ActionResult<AnotacaoResponseDto>> CreateAnotacao([FromBody] CreateAnotacaoDto dto)
         {
+            if (!await _campanhaAuth.IsMembroAsync(dto.CampanhaId, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não participa desta campanha.");
+
             bool isMestre = await _campanhaAuth.IsMestreAsync(dto.CampanhaId, _currentUser.UserId);
+
+            // A pasta de destino precisa pertencer à mesma campanha.
+            if (dto.PastaId.HasValue)
+            {
+                var pasta = await _uof.PastaAnotacaoRepository.GetPastaAsync(dto.PastaId.Value);
+                if (pasta == null || pasta.CampanhaId != dto.CampanhaId)
+                    return BadRequest("Pasta inválida para esta campanha.");
+            }
 
             var novaAnotacao = new Wyvern.Domain.Entities.Anotacao
             {
@@ -130,7 +138,14 @@ namespace Wyvern.Api.Controllers
 
             if (!isMestre && anotacao.CriadoPorId != _currentUser.UserId)
             {
-                return Forbid("Apenas o autor ou o mestre podem editar esta anotação.");
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o autor ou o mestre podem editar esta anotação.");
+            }
+
+            if (dto.PastaId.HasValue)
+            {
+                var pasta = await _uof.PastaAnotacaoRepository.GetPastaAsync(dto.PastaId.Value);
+                if (pasta == null || pasta.CampanhaId != anotacao.CampanhaId)
+                    return BadRequest("Pasta inválida para esta campanha.");
             }
 
             // Apenas o mestre pode mudar a visibilidade pública de algo
@@ -158,7 +173,7 @@ namespace Wyvern.Api.Controllers
 
             if (!isMestre && anotacao.CriadoPorId != _currentUser.UserId)
             {
-                return Forbid("Apenas o autor ou o mestre podem deletar esta anotação.");
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o autor ou o mestre podem deletar esta anotação.");
             }
 
             await _uof.AnotacaoRepository.DeleteAnotacaoAsync(id);

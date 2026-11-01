@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Authorization;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Application.Services;
 using System.Security.Claims;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace Wyvern.Api.Controllers
 {
@@ -58,8 +59,9 @@ namespace Wyvern.Api.Controllers
             campanhaDto.Sessoes = _mapper.Map<List<SessaoResponseDto>>(campanha.Sessoes ?? new List<Sessao>());
             return Ok(campanhaDto);
         }
+        // Qualquer usuário autenticado pode criar uma campanha e passa a ser o Mestre dela
+        // (CampanhaRepository.CreateCampanhaAsync define MestreId a partir do token, ignorando o DTO).
         [HttpPost]
-        [Authorize(Roles = "Mestre")]
         public async Task<ActionResult<CampanhaResponseDetailDto>> CreateCampanha(CreateCampanhaDto campanhaDto)
         {
             if (campanhaDto == null)
@@ -80,7 +82,6 @@ namespace Wyvern.Api.Controllers
             return CreatedAtAction(nameof(GetCampanhaById), new { id = campanha.CampanhaId }, campanhaCriadaDto);
         }
         [HttpPut("{id:int}")]
-        [Authorize(Roles = "Mestre")]
         public async Task<ActionResult<CampanhaResponseDetailDto>> UpdateCampanha(int id, CampanhaUpdatetDto campanhaDto)
         {
             if (campanhaDto == null)
@@ -90,6 +91,9 @@ namespace Wyvern.Api.Controllers
 
             if (campanhaNoBanco == null)
                 return NotFound("Campanha não encontrada");
+
+            if (!_campanhaAuth.IsMestre(campanhaNoBanco, _currentUserService.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre pode editar a campanha.");
 
             _mapper.Map(campanhaDto, campanhaNoBanco);
 
@@ -106,25 +110,27 @@ namespace Wyvern.Api.Controllers
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> DeleteCampanha(int id)
         {
+            var campanhaVisivel = await _uof.CampanhaRepository.GetCampanhaAsync(id);
+            if (campanhaVisivel == null)
+                return NotFound("Campanha não encontrada");
 
-            var campanha = await _uof.CampanhaRepository.DeleteCampanhaAsync(id);
-            if (campanha == null)
-            {
-                return BadRequest("Dados inválidos");
-            }
+            if (!_campanhaAuth.IsMestre(campanhaVisivel, _currentUserService.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre pode excluir a campanha.");
+
+            await _uof.CampanhaRepository.DeleteCampanhaAsync(id);
             await _uof.CommitAsync();
             return Ok("Campanha deletada com sucesso");
         }
 
         [HttpPost("{id:int}/generate-invite")]
-        [Authorize(Roles = "Mestre")]
         public async Task<ActionResult> GenerateInvite(int id)
         {
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(id);
             if (campanha == null) return NotFound("Campanha não encontrada");
-            
+
             var currentUserId = _currentUserService.UserId;
-            if (!_campanhaAuth.IsMestre(campanha, currentUserId)) return Forbid("Apenas o Mestre pode gerar convites.");
+            if (!_campanhaAuth.IsMestre(campanha, currentUserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre pode gerar convites.");
 
             campanha.TokenConvite = Guid.NewGuid().ToString("N");
             await _uof.CampanhaRepository.UpdateCampanhaAsync(campanha);
@@ -134,6 +140,7 @@ namespace Wyvern.Api.Controllers
         }
 
         [HttpPost("join/{token}")]
+        [EnableRateLimiting("auth")]
         public async Task<ActionResult> Join(string token)
         {
             var currentUserId = _currentUserService.UserId;

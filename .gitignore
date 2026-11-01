@@ -1,0 +1,9 @@
+# Segredos locais
+.env
+
+# Build / IDE
+bin/
+obj/
+.vs/
+*.user
+*.db

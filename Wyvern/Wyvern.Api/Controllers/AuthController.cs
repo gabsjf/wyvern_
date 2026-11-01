@@ -1,22 +1,22 @@
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Wyvern.Application.DTOs.Auth;
 using Wyvern.Application.Services;
-using Microsoft.EntityFrameworkCore;
+using Wyvern.Domain.Exceptions;
 
 namespace Wyvern.Api.Controllers
 {
     [ApiController]
     [Route("[controller]")]
+    [EnableRateLimiting("auth")]
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
-        private readonly Wyvern.Infrastructure.Data.WyvernDbContext _db;
 
-        public AuthController(IAuthService authService, Wyvern.Infrastructure.Data.WyvernDbContext db)
+        public AuthController(IAuthService authService)
         {
             _authService = authService;
-            _db = db;
         }
 
         [HttpPost("register")]
@@ -27,7 +27,7 @@ namespace Wyvern.Api.Controllers
                 var response = await _authService.RegisterAsync(dto);
                 return Ok(response);
             }
-            catch (System.Exception ex)
+            catch (RegraNegocioException ex)
             {
                 return BadRequest(new { message = ex.Message });
             }
@@ -41,7 +41,7 @@ namespace Wyvern.Api.Controllers
                 var response = await _authService.LoginAsync(dto);
                 return Ok(response);
             }
-            catch (System.Exception ex)
+            catch (RegraNegocioException ex)
             {
                 return Unauthorized(new { message = ex.Message });
             }

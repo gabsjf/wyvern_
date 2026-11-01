@@ -36,6 +36,14 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
                 .FirstOrDefaultAsync(c => c.CampanhaId == id && c.Ativo && (c.MestreId == _currentUser.UserId || c.Jogadores!.Any(j => j.UsuarioId == _currentUser.UserId)));
         }
 
+        public async Task<CampanhaEntity?> GetCampanhaParaAutorizacaoAsync(int id)
+        {
+            return await _context.Campanhas
+                .AsNoTracking()
+                .Include(c => c.Jogadores)
+                .FirstOrDefaultAsync(c => c.CampanhaId == id && c.Ativo);
+        }
+
         public async Task<CampanhaEntity?> GetCampanhaByTokenAsync(string token)
         {
             return await _context.Campanhas

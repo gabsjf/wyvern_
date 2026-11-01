@@ -29,6 +29,7 @@ namespace Wyvern.Infrastructure.Repositories.Combate
         public async Task<CombateEntity?> GetCombateAsync(int id)
         {
             return await _context.Combates
+                .Include(c => c.Sessao)
                 .Include(c => c.Participantes)
                     .ThenInclude(p => p.Personagem)
                 .FirstOrDefaultAsync(c => c.CombateId == id && c.Ativo);

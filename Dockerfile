@@ -17,4 +17,7 @@ COPY --from=build-env /App/out .
 ENV ASPNETCORE_URLS=http://+:8080
 EXPOSE 8080
 
+# Usuário sem privilégios (definido na imagem base do ASP.NET)
+USER $APP_UID
+
 ENTRYPOINT ["dotnet", "Wyvern.Api.dll"]

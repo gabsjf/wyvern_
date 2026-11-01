@@ -3,4 +3,5 @@
   <Project Path="Wyvern.Application/Wyvern.Application.csproj" />
   <Project Path="Wyvern.Domain/Wyvern.Domain.csproj" />
   <Project Path="Wyvern.Infrastructure/Wyvern.Infrastructure.csproj" />
+  <Project Path="Wyvern.Tests/Wyvern.Tests.csproj" />
 </Solution>

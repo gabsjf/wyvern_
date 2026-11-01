@@ -11,6 +11,8 @@ namespace Wyvern.Domain.Interfaces.Repositories.Campanha
         Task<CampanhaEntity?> GetCampanhaAsync(int id);
         Task<CampanhaEntity> CreateCampanhaAsync(CampanhaEntity campanha);
         Task<CampanhaEntity?> GetCampanhaByTokenAsync(string token);
+        /// <summary>Busca a campanha ativa sem filtrar pelo usuário atual; usar só para decisões de autorização.</summary>
+        Task<CampanhaEntity?> GetCampanhaParaAutorizacaoAsync(int id);
         Task<CampanhaEntity> UpdateCampanhaAsync(CampanhaEntity campanha);
         Task<CampanhaEntity> DeleteCampanhaAsync(int id);
     }

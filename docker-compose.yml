@@ -1,17 +1,19 @@
-version: '3.8'
-
 services:
   db:
     image: postgres:15
     container_name: wyvern_db
     environment:
       - POSTGRES_USER=wyvern
-      - POSTGRES_PASSWORD=wyvern_super_secret
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?Defina POSTGRES_PASSWORD no arquivo .env}
       - POSTGRES_DB=wyverndb
-    ports:
-      - "5432:5432"
+    # Sem "ports": o banco só é acessível pela rede interna do compose.
     volumes:
       - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wyvern -d wyverndb"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     restart: unless-stopped
 
   api:
@@ -22,14 +24,16 @@ services:
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - ASPNETCORE_URLS=http://+:8080
-      - ConnectionStrings__DefaultConnection=Host=db;Database=wyverndb;Username=wyvern;Password=wyvern_super_secret;
-      - Jwt__Key=ThisIsAVerySecretKeyForJwtAuthenticationWhichShouldBeLongEnoughAndChangedInProd
+      - ConnectionStrings__DefaultConnection=Host=db;Database=wyverndb;Username=wyvern;Password=${POSTGRES_PASSWORD};
+      - Jwt__Key=${JWT_KEY:?Defina JWT_KEY (mínimo 32 caracteres) no arquivo .env}
       - Jwt__Issuer=WyvernApi
       - Jwt__Audience=WyvernFront
+      - Cors__AllowedOrigins__0=${FRONTEND_ORIGIN:-https://wyvern-kappa.vercel.app}
     ports:
       - "8080:8080"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:
