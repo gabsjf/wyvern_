@@ -18,11 +18,13 @@ namespace Wyvern.Api.Controllers
     {
         private readonly IUnitOfWork _uof;
         private readonly IMapper _mapper;
+        private readonly Wyvern.Domain.Interfaces.ICurrentUserService _currentUser;
 
-        public DashboardController(IUnitOfWork uof, IMapper mapper)
+        public DashboardController(IUnitOfWork uof, IMapper mapper, Wyvern.Domain.Interfaces.ICurrentUserService currentUser)
         {
             _uof = uof;
             _mapper = mapper;
+            _currentUser = currentUser;
         }
 
         [HttpGet("resumo")]
@@ -32,6 +34,15 @@ namespace Wyvern.Api.Controllers
             var sessoes = await _uof.SessaoRepository.GetSessoesAsync();
             var personagens = await _uof.PersonagemRepository.GetPersonagensAsync();
 
+            // Papel do usuário em cada campanha exibida (as campanhas já vêm com os membros carregados)
+            var ultimasCampanhas = campanhas.OrderByDescending(c => c.CampanhaId).Take(4).ToList();
+            var ultimasCampanhasDto = _mapper.Map<List<CampanhaResponseDto>>(ultimasCampanhas);
+            for (var i = 0; i < ultimasCampanhasDto.Count; i++)
+            {
+                ultimasCampanhasDto[i].Papel = ultimasCampanhas[i].Membros?
+                    .FirstOrDefault(m => m.UsuarioId == _currentUser.UserId)?.Papel.ToString();
+            }
+
             var resumo = new DashboardSummaryDto
             {
                 TotalCampanhas = campanhas.Count(),
@@ -39,9 +50,7 @@ namespace Wyvern.Api.Controllers
                 TotalNpcs = personagens.Count(p => p.TipoId == 2),
                 TotalViloes = personagens.Count(p => p.TipoId == 3),
                 
-                UltimasCampanhas = _mapper.Map<List<CampanhaResponseDto>>(
-                    campanhas.OrderByDescending(c => c.CampanhaId).Take(4)
-                ),
+                UltimasCampanhas = ultimasCampanhasDto,
                 
                 ProximasSessoes = _mapper.Map<List<SessaoResponseDto>>(
                     sessoes.Where(s => s.DataAgendada.HasValue && s.DataAgendada.Value >= System.DateTime.Now.Date)
