@@ -1,4 +1,4 @@
-﻿using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -94,7 +94,11 @@ public class MigrationsPostgresTests
             Assert.Equal(db.Database.GetMigrations().ToList(), aplicadas);
             Assert.Empty(await db.Database.GetPendingMigrationsAsync());
 
-            Assert.Equal(1, await ContarAsync(db, $@"SELECT count(*) FROM {Schema}.""Campanhas_Jogadores"""));
+            // Papel por campanha: o jogador (já sem a duplicata) continua como Jogador e o criador passa a constar como Mestre.
+            Assert.Equal(2, await ContarAsync(db, $@"SELECT count(*) FROM {Schema}.""Campanhas_Membros"""));
+            Assert.Equal(1, await ContarAsync(db, $@"SELECT count(*) FROM {Schema}.""Campanhas_Membros"" m JOIN {Schema}.""Usuario"" u ON u.""UsuarioId"" = m.""UsuarioId"" WHERE u.""Email"" = 'j@t.com' AND m.""Papel"" = 2"));
+            Assert.Equal(1, await ContarAsync(db, $@"SELECT count(*) FROM {Schema}.""Campanhas_Membros"" m JOIN {Schema}.""Campanhas"" c ON c.""CampanhaId"" = m.""CampanhaId"" WHERE m.""UsuarioId"" = c.""MestreId"" AND m.""Papel"" = 1"));
+            Assert.Equal(0, await ContarAsync(db, $@"SELECT count(*) FROM information_schema.tables WHERE table_schema = '{Schema}' AND table_name = 'Campanhas_Jogadores'"));
             Assert.Equal(1, await ContarAsync(db, $@"SELECT count(*) FROM {Schema}.""Combates"" WHERE ""Ativo"" = true"));
             Assert.Equal(2, await ContarAsync(db, $@"SELECT count(*) FROM {Schema}.""Combates"""));
         }

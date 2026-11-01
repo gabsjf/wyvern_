@@ -39,6 +39,16 @@ namespace Wyvern.Api.Controllers
         private ActionResult NaoParticipa() =>
             Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não participa desta campanha.");
 
+        // O Mestre altera qualquer pasta; o autor, a própria. Pastas antigas (sem autor) só o Mestre.
+        private async Task<bool> PodeAlterarAsync(PastaAnotacao pasta)
+        {
+            if (await _campanhaAuth.IsMestreAsync(pasta.CampanhaId, _currentUser.UserId)) return true;
+
+            return pasta.CriadoPorId.HasValue
+                && pasta.CriadoPorId == _currentUser.UserId
+                && await _campanhaAuth.IsMembroAsync(pasta.CampanhaId, _currentUser.UserId);
+        }
+
         [HttpGet("campanha/{campanhaId}")]
         public async Task<ActionResult<IEnumerable<PastaAnotacaoResponseDto>>> GetPastas(int campanhaId)
         {
@@ -71,7 +81,8 @@ namespace Wyvern.Api.Controllers
                 Nome = dto.Nome,
                 // Como nas anotações, só o Mestre publica conteúdo para a mesa.
                 IsPublica = isMestre && dto.IsPublica,
-                CriadoEm = System.DateTime.Now
+                CriadoEm = System.DateTime.Now,
+                CriadoPorId = _currentUser.UserId
             };
 
             await _uof.PastaAnotacaoRepository.CreatePastaAsync(novaPasta);
@@ -79,17 +90,20 @@ namespace Wyvern.Api.Controllers
             return CreatedAtAction(nameof(GetPastaById), new { id = novaPasta.PastaId }, ParaDto(novaPasta));
         }
 
-        // Pastas ainda não guardam o autor, então só o Mestre da campanha edita ou exclui.
         [HttpPut("{id}")]
         public async Task<IActionResult> UpdatePasta(int id, [FromBody] PastaAnotacaoSaveDto dto)
         {
             var pasta = await _uof.PastaAnotacaoRepository.GetPastaAsync(id);
             if (pasta == null) return NotFound("Pasta não encontrada");
-            if (!await _campanhaAuth.IsMestreAsync(pasta.CampanhaId, _currentUser.UserId))
-                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre pode editar pastas.");
+            if (!await _campanhaAuth.IsMembroAsync(pasta.CampanhaId, _currentUser.UserId)) return NaoParticipa();
+            if (!await PodeAlterarAsync(pasta))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre ou o autor podem editar esta pasta.");
+
+            var isMestre = await _campanhaAuth.IsMestreAsync(pasta.CampanhaId, _currentUser.UserId);
 
             pasta.Nome = dto.Nome;
-            pasta.IsPublica = dto.IsPublica;
+            // Só o Mestre muda a visibilidade pública
+            if (isMestre) pasta.IsPublica = dto.IsPublica;
 
             await _uof.PastaAnotacaoRepository.UpdatePastaAsync(pasta);
             await _uof.CommitAsync();
@@ -101,8 +115,9 @@ namespace Wyvern.Api.Controllers
         {
             var pasta = await _uof.PastaAnotacaoRepository.GetPastaAsync(id);
             if (pasta == null) return NotFound("Pasta não encontrada");
-            if (!await _campanhaAuth.IsMestreAsync(pasta.CampanhaId, _currentUser.UserId))
-                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre pode excluir pastas.");
+            if (!await _campanhaAuth.IsMembroAsync(pasta.CampanhaId, _currentUser.UserId)) return NaoParticipa();
+            if (!await PodeAlterarAsync(pasta))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Apenas o Mestre ou o autor podem excluir esta pasta.");
 
             await _uof.PastaAnotacaoRepository.DeletePastaAsync(id);
             await _uof.CommitAsync();

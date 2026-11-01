@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using CampanhaEntity = Wyvern.Domain.Entities.Campanha;
+using Wyvern.Domain.Entities;
 using Wyvern.Infrastructure.Data;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Domain.Interfaces.Repositories.Campanha;
@@ -17,31 +18,26 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
             _currentUser = currentUser;
         }
 
-        public async Task<IEnumerable<CampanhaEntity>> GetCampanhasAsync()
+        // Só campanhas ativas das quais o usuário atual é membro (Mestre ou Jogador).
+        private IQueryable<CampanhaEntity> CampanhasVisiveis()
         {
-            return await _context.Campanhas
+            var userId = _currentUser.UserId;
+
+            return _context.Campanhas
                 .Include(c => c.Mestre)
                 .Include(c => c.Sessoes)
-                .Include(c => c.Jogadores)
-                .Where(c => c.Ativo && (c.MestreId == _currentUser.UserId || c.Jogadores!.Any(j => j.UsuarioId == _currentUser.UserId)))
-                .ToListAsync();
+                .Include(c => c.Membros)
+                .Where(c => c.Ativo && c.Membros!.Any(m => m.UsuarioId == userId));
+        }
+
+        public async Task<IEnumerable<CampanhaEntity>> GetCampanhasAsync()
+        {
+            return await CampanhasVisiveis().ToListAsync();
         }
 
         public async Task<CampanhaEntity?> GetCampanhaAsync(int id)
         {
-            return await _context.Campanhas
-                .Include(c => c.Mestre)
-                .Include(c => c.Sessoes)
-                .Include(c => c.Jogadores)
-                .FirstOrDefaultAsync(c => c.CampanhaId == id && c.Ativo && (c.MestreId == _currentUser.UserId || c.Jogadores!.Any(j => j.UsuarioId == _currentUser.UserId)));
-        }
-
-        public async Task<CampanhaEntity?> GetCampanhaParaAutorizacaoAsync(int id)
-        {
-            return await _context.Campanhas
-                .AsNoTracking()
-                .Include(c => c.Jogadores)
-                .FirstOrDefaultAsync(c => c.CampanhaId == id && c.Ativo);
+            return await CampanhasVisiveis().FirstOrDefaultAsync(c => c.CampanhaId == id);
         }
 
         public async Task<CampanhaEntity?> GetCampanhaByTokenAsync(string token)
@@ -49,8 +45,25 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
             return await _context.Campanhas
                 .Include(c => c.Mestre)
                 .Include(c => c.Sessoes)
-                .Include(c => c.Jogadores)
+                .Include(c => c.Membros)
                 .FirstOrDefaultAsync(c => c.TokenConvite == token && c.Ativo);
+        }
+
+        public async Task<PapelCampanha?> ObterPapelAsync(int campanhaId, int usuarioId)
+        {
+            return await _context.CampanhasMembros
+                .AsNoTracking()
+                .Where(m => m.CampanhaId == campanhaId && m.UsuarioId == usuarioId && m.Campanha!.Ativo)
+                .Select(m => (PapelCampanha?)m.Papel)
+                .FirstOrDefaultAsync();
+        }
+
+        public async Task<CampanhaEntity?> GetCampanhaParaGestaoAsync(int campanhaId)
+        {
+            return await _context.Campanhas
+                .Include(c => c.Membros!)
+                    .ThenInclude(m => m.Usuario)
+                .FirstOrDefaultAsync(c => c.CampanhaId == campanhaId && c.Ativo);
         }
 
         public Task<CampanhaEntity> CreateCampanhaAsync(CampanhaEntity campanha)
@@ -61,6 +74,10 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
             if (_currentUser.UserId.HasValue)
             {
                 campanha.MestreId = _currentUser.UserId.Value;
+                campanha.Membros = new List<CampanhaMembro>
+                {
+                    new CampanhaMembro { UsuarioId = _currentUser.UserId.Value, Papel = PapelCampanha.Mestre }
+                };
             }
 
             _context.Campanhas.Add(campanha);

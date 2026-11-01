@@ -26,7 +26,7 @@ namespace Wyvern.Infrastructure.Repositories.Sessao
                 .Include(s => s.Campanha)
                 .Where(s => s.Ativo
                     && s.Campanha.Ativo
-                    && (s.Campanha.MestreId == userId || s.Campanha.Jogadores!.Any(j => j.UsuarioId == userId)));
+                    && s.Campanha.Membros!.Any(m => m.UsuarioId == userId));
         }
 
         public async Task<IEnumerable<SessaoEntity>> GetSessoesAsync()

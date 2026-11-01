@@ -122,6 +122,9 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<bool>("Ativo")
                         .HasColumnType("boolean");
 
+                    b.Property<DateTime?>("ConviteExpiraEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -149,7 +152,7 @@ namespace Wyvern.Infrastructure.Migrations
                     b.ToTable("Campanhas");
                 });
 
-            modelBuilder.Entity("Wyvern.Domain.Entities.CampanhaJogador", b =>
+            modelBuilder.Entity("Wyvern.Domain.Entities.CampanhaMembro", b =>
                 {
                     b.Property<int>("Id")
                         .ValueGeneratedOnAdd()
@@ -163,6 +166,9 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<DateTime>("EntrouEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<int>("Papel")
+                        .HasColumnType("integer");
+
                     b.Property<int>("UsuarioId")
                         .HasColumnType("integer");
 
@@ -173,7 +179,7 @@ namespace Wyvern.Infrastructure.Migrations
                     b.HasIndex("CampanhaId", "UsuarioId")
                         .IsUnique();
 
-                    b.ToTable("Campanhas_Jogadores");
+                    b.ToTable("Campanhas_Membros");
                 });
 
             modelBuilder.Entity("Wyvern.Domain.Entities.Combate", b =>
@@ -330,6 +336,9 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<int?>("CriadoPorId")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsPublica")
                         .HasColumnType("boolean");
 
@@ -341,6 +350,8 @@ namespace Wyvern.Infrastructure.Migrations
                     b.HasKey("PastaId");
 
                     b.HasIndex("CampanhaId");
+
+                    b.HasIndex("CriadoPorId");
 
                     b.ToTable("PastasAnotacao");
                 });
@@ -1254,10 +1265,10 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Navigation("Mestre");
                 });
 
-            modelBuilder.Entity("Wyvern.Domain.Entities.CampanhaJogador", b =>
+            modelBuilder.Entity("Wyvern.Domain.Entities.CampanhaMembro", b =>
                 {
                     b.HasOne("Wyvern.Domain.Entities.Campanha", "Campanha")
-                        .WithMany("Jogadores")
+                        .WithMany("Membros")
                         .HasForeignKey("CampanhaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -1308,6 +1319,11 @@ namespace Wyvern.Infrastructure.Migrations
                         .HasForeignKey("CampanhaId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.HasOne("Wyvern.Domain.Entities.Usuario", null)
+                        .WithMany()
+                        .HasForeignKey("CriadoPorId")
+                        .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Campanha");
                 });
@@ -1525,7 +1541,7 @@ namespace Wyvern.Infrastructure.Migrations
 
             modelBuilder.Entity("Wyvern.Domain.Entities.Campanha", b =>
                 {
-                    b.Navigation("Jogadores");
+                    b.Navigation("Membros");
 
                     b.Navigation("Sessoes");
                 });

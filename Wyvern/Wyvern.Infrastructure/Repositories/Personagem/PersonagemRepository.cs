@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Wyvern.Infrastructure.Data;
+using Wyvern.Domain.Entities;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Domain.Interfaces.Repositories.Personagem;
 using PersonagemEntity = Wyvern.Domain.Entities.Personagem;
@@ -25,7 +26,7 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .Include(p => p.PersonagemPlayer)
                 .Include(p => p.PersonagemCombate)
                 .Include(p => p.Campanha)
-                .Where(p => p.Ativo && (p.CriadoPorId == _currentUser.UserId || p.Campanha.MestreId == _currentUser.UserId))
+                .Where(p => p.Ativo && p.Campanha.Membros!.Any(m => m.UsuarioId == _currentUser.UserId && (p.CriadoPorId == _currentUser.UserId || m.Papel == PapelCampanha.Mestre)))
                 .ToListAsync();
         }
 
@@ -51,7 +52,7 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                     .ThenInclude(pp => pp.Pericia)
                 .AsSplitQuery()
                 .Include(p => p.Campanha)
-                .FirstOrDefaultAsync(p => p.PersonagemId == id && p.Ativo && (p.CriadoPorId == _currentUser.UserId || p.Campanha.MestreId == _currentUser.UserId));
+                .FirstOrDefaultAsync(p => p.PersonagemId == id && p.Ativo && p.Campanha.Membros!.Any(m => m.UsuarioId == _currentUser.UserId && (p.CriadoPorId == _currentUser.UserId || m.Papel == PapelCampanha.Mestre)));
         }
 
         public Task<PersonagemEntity> CreatePersonagemAsync(PersonagemEntity personagem)

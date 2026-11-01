@@ -29,7 +29,7 @@ namespace Wyvern.Infrastructure.Data
         public DbSet<Magia> Magias { get; set; }
         public DbSet<Item> Itens { get; set; }
         public DbSet<Campanha> Campanhas { get; set; }
-        public DbSet<CampanhaJogador> CampanhasJogadores { get; set; }
+        public DbSet<CampanhaMembro> CampanhasMembros { get; set; }
         public DbSet<Atributo> Atributos { get; set; }
         public DbSet<PersonagemDetalhes> PersonagemDetalhes { get; set; }
         public DbSet<PersonagemDinheiro> PersonagemDinheiros { get; set; }
@@ -146,17 +146,29 @@ namespace Wyvern.Infrastructure.Data
                 .HasForeignKey(c => c.MestreId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<CampanhaJogador>()
+            modelBuilder.Entity<CampanhaMembro>()
                 .HasOne(cj => cj.Campanha)
-                .WithMany(c => c.Jogadores)
+                .WithMany(c => c.Membros)
                 .HasForeignKey(cj => cj.CampanhaId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<CampanhaJogador>()
+            modelBuilder.Entity<CampanhaMembro>()
                 .HasOne(cj => cj.Usuario)
                 .WithMany()
                 .HasForeignKey(cj => cj.UsuarioId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Papel guardado como inteiro (1 = Mestre, 2 = Jogador)
+            modelBuilder.Entity<CampanhaMembro>()
+                .Property(m => m.Papel)
+                .HasConversion<int>();
+
+            // Autor da pasta; se o usuário sumir, a pasta fica sem autor (só o Mestre a altera)
+            modelBuilder.Entity<PastaAnotacao>()
+                .HasOne<Usuario>()
+                .WithMany()
+                .HasForeignKey(p => p.CriadoPorId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<PastaAnotacao>()
                 .HasMany(p => p.Anotacoes)
@@ -188,7 +200,7 @@ namespace Wyvern.Infrastructure.Data
                 .HasIndex(c => c.TokenConvite)
                 .IsUnique();
 
-            modelBuilder.Entity<CampanhaJogador>()
+            modelBuilder.Entity<CampanhaMembro>()
                 .HasIndex(cj => new { cj.CampanhaId, cj.UsuarioId })
                 .IsUnique();
 

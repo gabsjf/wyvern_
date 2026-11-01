@@ -12,33 +12,21 @@ namespace Wyvern.Application.Services
             _uof = uof;
         }
 
-        public bool IsMestre(Campanha? campanha, int? userId)
+        public async Task<PapelCampanha?> ObterPapelAsync(int campanhaId, int? userId)
         {
-            return campanha != null && userId.HasValue && campanha.MestreId == userId.Value;
-        }
+            if (!userId.HasValue) return null;
 
-        public bool IsMembro(Campanha? campanha, int? userId)
-        {
-            if (campanha == null || !userId.HasValue) return false;
-
-            return campanha.MestreId == userId.Value
-                || (campanha.Jogadores?.Any(j => j.UsuarioId == userId.Value) ?? false);
+            return await _uof.CampanhaRepository.ObterPapelAsync(campanhaId, userId.Value);
         }
 
         public async Task<bool> IsMestreAsync(int campanhaId, int? userId)
         {
-            if (!userId.HasValue) return false;
-
-            var campanha = await _uof.CampanhaRepository.GetCampanhaParaAutorizacaoAsync(campanhaId);
-            return IsMestre(campanha, userId);
+            return await ObterPapelAsync(campanhaId, userId) == PapelCampanha.Mestre;
         }
 
         public async Task<bool> IsMembroAsync(int campanhaId, int? userId)
         {
-            if (!userId.HasValue) return false;
-
-            var campanha = await _uof.CampanhaRepository.GetCampanhaParaAutorizacaoAsync(campanhaId);
-            return IsMembro(campanha, userId);
+            return await ObterPapelAsync(campanhaId, userId) != null;
         }
     }
 }

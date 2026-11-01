@@ -78,7 +78,7 @@ public class SessaoController : ControllerBase
         var sessaoBanco = await _uof.SessaoRepository.GetSessaoAsync(id);
         if (sessaoBanco == null) return NotFound("Sessão não encontrada.");
 
-        if (!_campanhaAuth.IsMestre(sessaoBanco.Campanha, _currentUser.UserId))
+        if (!await _campanhaAuth.IsMestreAsync(sessaoBanco.CampanhaId, _currentUser.UserId))
             return SomenteMestre("editar sessões");
 
         // Mover a sessão para outra campanha exige ser Mestre das duas.
@@ -87,7 +87,7 @@ public class SessaoController : ControllerBase
             var campanhaDestino = await _uof.CampanhaRepository.GetCampanhaAsync(sessaoDto.CampanhaId);
             if (campanhaDestino == null) return BadRequest("A nova campanha informada não existe");
 
-            if (!_campanhaAuth.IsMestre(campanhaDestino, _currentUser.UserId))
+            if (!await _campanhaAuth.IsMestreAsync(sessaoDto.CampanhaId, _currentUser.UserId))
                 return SomenteMestre("mover sessões para esta campanha");
         }
 
@@ -105,7 +105,7 @@ public class SessaoController : ControllerBase
         var sessao = await _uof.SessaoRepository.GetSessaoAsync(id);
         if (sessao == null) return NotFound("Sessão não encontrada");
 
-        if (!_campanhaAuth.IsMestre(sessao.Campanha, _currentUser.UserId))
+        if (!await _campanhaAuth.IsMestreAsync(sessao.CampanhaId, _currentUser.UserId))
             return SomenteMestre("excluir sessões");
 
         await _uof.SessaoRepository.DeleteSessaoAsync(id);

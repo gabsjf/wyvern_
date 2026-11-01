@@ -26,6 +26,8 @@ namespace Wyvern.Api.Extensions
                     var (status, titulo, detalhe) = erro switch
                     {
                         RegraNegocioException regra => (StatusCodes.Status400BadRequest, "Requisição inválida.", regra.Message),
+                        NaoEncontradoException naoEncontrado => (StatusCodes.Status404NotFound, "Não encontrado.", naoEncontrado.Message),
+                        AcessoNegadoException negado => (StatusCodes.Status403Forbidden, "Acesso negado.", negado.Message),
                         // Dois pedidos alteraram o mesmo registro ao mesmo tempo (ex.: "próximo turno" duplo).
                         DbUpdateConcurrencyException => (StatusCodes.Status409Conflict, "Conflito de edição.",
                             "Este registro foi alterado por outra pessoa. Recarregue e tente de novo."),

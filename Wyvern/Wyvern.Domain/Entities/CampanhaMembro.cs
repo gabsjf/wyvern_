@@ -5,8 +5,9 @@ using System.Text.Json.Serialization;
 
 namespace Wyvern.Domain.Entities
 {
-    [Table("Campanhas_Jogadores")]
-    public class CampanhaJogador
+    /// <summary>Participação de um usuário numa campanha, com a função (papel) que ele exerce nela.</summary>
+    [Table("Campanhas_Membros")]
+    public class CampanhaMembro
     {
         [Key]
         public int Id { get; set; }
@@ -20,6 +21,8 @@ namespace Wyvern.Domain.Entities
         public int UsuarioId { get; set; }
         [JsonIgnore]
         public Usuario? Usuario { get; set; }
+
+        public PapelCampanha Papel { get; set; } = PapelCampanha.Jogador;
 
         public DateTime EntrouEm { get; set; } = DateTime.Now;
     }

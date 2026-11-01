@@ -71,7 +71,7 @@ namespace Wyvern.Api.Controllers
             if (campanha == null)
                 return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não participa desta campanha.");
 
-            bool isMestre = _campanhaAuth.IsMestre(campanha, _currentUser.UserId);
+            bool isMestre = await _campanhaAuth.IsMestreAsync(personagemDto.CampanhaId, _currentUser.UserId);
 
             if (!isMestre)
             {
@@ -109,7 +109,7 @@ namespace Wyvern.Api.Controllers
             if (pBanco == null) return NotFound("Personagem não encontrado");
 
             // Só o Mestre muda o tipo do personagem (Jogador/NPC/Monstro) ou mexe no bloco de NPC.
-            bool isMestre = _campanhaAuth.IsMestre(pBanco.Campanha, _currentUser.UserId);
+            bool isMestre = await _campanhaAuth.IsMestreAsync(pBanco.CampanhaId, _currentUser.UserId);
             if (!isMestre)
             {
                 personagemDto.TipoId = pBanco.TipoId;
@@ -272,7 +272,7 @@ namespace Wyvern.Api.Controllers
                 using var stream = file.OpenReadStream();
                 var personagem = pdfParserService.ParsePdf(stream, campanhaId, _currentUser.UserId.Value);
 
-                if (!_campanhaAuth.IsMestre(campanha, _currentUser.UserId))
+                if (!await _campanhaAuth.IsMestreAsync(campanhaId, _currentUser.UserId))
                 {
                     personagem.TipoId = 1;
                     personagem.PersonagemNpc = null;

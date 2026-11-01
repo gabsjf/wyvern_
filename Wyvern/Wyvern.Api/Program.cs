@@ -36,6 +36,8 @@ builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();
+builder.Services.AddScoped<ICampanhaService, CampanhaService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICombateService, CombateService>();
 
 builder.Services.AddHttpContextAccessor();
