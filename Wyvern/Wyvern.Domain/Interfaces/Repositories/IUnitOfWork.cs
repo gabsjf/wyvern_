@@ -9,6 +9,7 @@ using Wyvern.Domain.Interfaces.Repositories.Personagem;
 using Wyvern.Domain.Interfaces.Repositories.Sessao;
 using Wyvern.Domain.Interfaces.Repositories.Usuario;
 using Wyvern.Domain.Interfaces.Repositories.PastaAnotacao;
+using Wyvern.Domain.Interfaces.Repositories.Cronica;
 
 namespace Wyvern.Domain.Interfaces.Repositories
 {
@@ -24,6 +25,8 @@ namespace Wyvern.Domain.Interfaces.Repositories
         Wyvern.Domain.Interfaces.Repositories.Combate.ICombateRepository CombateRepository { get; }
         Wyvern.Domain.Interfaces.Repositories.Anotacao.IAnotacaoRepository AnotacaoRepository { get; }
         IPastaAnotacaoRepository PastaAnotacaoRepository { get; }
+        IEventoCampanhaRepository EventoCampanhaRepository { get; }
+        Wyvern.Domain.Interfaces.Repositories.Cena.ICenaRepository CenaRepository { get; }
         Task CommitAsync();
 
     }

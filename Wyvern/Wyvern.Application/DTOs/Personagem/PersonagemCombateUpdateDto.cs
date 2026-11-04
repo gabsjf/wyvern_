@@ -19,5 +19,6 @@ namespace Wyvern.Application.DTOs.Personagem
         public int DeathSaveSucessos { get; set; }
         public int DeathSaveFalhas { get; set; }
         public int ClasseArmaduraEscudo { get; set; }
+        public string? Condicoes { get; set; }
     }
 }

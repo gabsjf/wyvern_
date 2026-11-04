@@ -23,5 +23,7 @@ namespace Wyvern.Domain.Entities
         public int DeathSaveSucessos { get; set; }
         public int DeathSaveFalhas { get; set; }
         public int ClasseArmaduraEscudo { get; set; }
+        /// <summary>Condições ativas (Envenenado, Caído...), separadas por vírgula.</summary>
+        public string? Condicoes { get; set; }
     }
 }

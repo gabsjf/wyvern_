@@ -39,6 +39,7 @@ builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationS
 builder.Services.AddScoped<ICampanhaService, CampanhaService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICombateService, CombateService>();
+builder.Services.AddScoped<ICronicaService, CronicaService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
@@ -75,7 +76,7 @@ builder.Services.AddAuthentication(x =>
         OnMessageReceived = context =>
         {
             var accessToken = context.Request.Query["access_token"];
-            if (!string.IsNullOrEmpty(accessToken) && context.HttpContext.Request.Path.StartsWithSegments("/combathub"))
+            if (!string.IsNullOrEmpty(accessToken) && IsHubPath(context.HttpContext.Request.Path))
                 context.Token = accessToken;
 
             return Task.CompletedTask;
@@ -90,6 +91,7 @@ builder.Services.AddAuthorization(options =>
 builder.Services.AddOpenApi();
 builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(AtributoProfile).Assembly));
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<Wyvern.Application.Services.HistoricoRolagens>();
 
 // Atrás de proxy (Render, nginx) o IP real vem em X-Forwarded-For; sem isso o rate limit contaria o proxy inteiro.
 builder.Services.Configure<ForwardedHeadersOptions>(options =>
@@ -173,9 +175,14 @@ app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<Wyvern.Api.Hubs.CombatHub>("/combathub");
+app.MapHub<Wyvern.Api.Hubs.MesaHub>("/mesahub");
+app.MapHub<Wyvern.Api.Hubs.CenaHub>("/cenahub");
 app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();
+
+static bool IsHubPath(PathString path) =>
+    path.StartsWithSegments("/combathub") || path.StartsWithSegments("/mesahub") || path.StartsWithSegments("/cenahub");
 
 // Necessário para os testes de integração (WebApplicationFactory<Program>).
 public partial class Program { }

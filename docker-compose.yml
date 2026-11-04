@@ -28,13 +28,38 @@ services:
       - Jwt__Key=${JWT_KEY:?Defina JWT_KEY (mínimo 32 caracteres) no arquivo .env}
       - Jwt__Issuer=WyvernApi
       - Jwt__Audience=WyvernFront
-      - Cors__AllowedOrigins__0=${FRONTEND_ORIGIN:-https://wyvern-kappa.vercel.app}
-    ports:
-      - "8080:8080"
+      - Cors__AllowedOrigins__0=${FRONTEND_ORIGIN:?Defina FRONTEND_ORIGIN no arquivo .env}
+    # Sem "ports": quem fala com a API é o Caddy, pela rede interna.
+    expose:
+      - "8080"
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
 
+  caddy:
+    image: caddy:2
+    container_name: wyvern_caddy
+    # O DNS herdado do host (127.0.0.53) não funciona dentro do contêiner nesta VPS.
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+    environment:
+      - DOMAIN=${DOMAIN:?Defina DOMAIN no arquivo .env}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - ./front:/srv/front:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+    restart: unless-stopped
+
 volumes:
   postgres_data:
+  caddy_data:
+  caddy_config:

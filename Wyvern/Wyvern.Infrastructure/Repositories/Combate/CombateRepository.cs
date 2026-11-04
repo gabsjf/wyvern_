@@ -73,6 +73,14 @@ namespace Wyvern.Infrastructure.Repositories.Combate
             return combate;
         }
 
+        public async Task<CombateEntity?> GetAtivoDoParticipanteAsync(int participanteId)
+        {
+            return await _context.Combates
+                .Include(c => c.Participantes)
+                .Where(c => c.Ativo && c.Participantes!.Any(p => p.ParticipanteId == participanteId))
+                .FirstOrDefaultAsync();
+        }
+
         public async Task<CombateEntity?> GetActiveCombateByCampanhaAsync(int campanhaId)
         {
             return await _context.Combates

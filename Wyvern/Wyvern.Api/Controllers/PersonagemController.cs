@@ -19,13 +19,15 @@ namespace Wyvern.Api.Controllers
         private readonly IMapper _mapper;
         private readonly ICurrentUserService _currentUser;
         private readonly ICampanhaAuthorizationService _campanhaAuth;
+        private readonly ICronicaService _cronica;
 
-        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth)
+        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica)
         {
             _uof = uof;
             _mapper = mapper;
             _currentUser = currentUser;
             _campanhaAuth = campanhaAuth;
+            _cronica = cronica;
         }
 
         [HttpGet]
@@ -65,6 +67,7 @@ namespace Wyvern.Api.Controllers
             var personagem = _mapper.Map<Personagem>(personagemDto);
             personagem.CriadoEm = DateTime.Now;
             personagem.Ativo = true;
+            EstadoPersonagemService.EncherEspacosDeMagiaNovos(personagem.PersonagemConjuracao);
 
             // GetCampanhaAsync já filtra por participação: nulo significa que a campanha não existe ou o usuário não faz parte dela.
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(personagemDto.CampanhaId);
@@ -229,6 +232,74 @@ namespace Wyvern.Api.Controllers
             await _uof.PersonagemRepository.UpdatePersonagemAsync(pBanco);
             await _uof.CommitAsync();
             return Ok(_mapper.Map<PersonagemResponseDto>(pBanco));
+        }
+
+        /// <summary>
+        /// Registra um descanso curto ou longo. O repositório só devolve o personagem ao dono ou ao Mestre da campanha
+        /// (para os demais ele não existe), então essa é a mesma regra de quem pode editar a ficha.
+        /// </summary>
+        [HttpPost("{id:int}/descanso")]
+        public async Task<ActionResult<PersonagemResponseDto>> Descansar(int id, PersonagemDescansoDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+
+            var vidaAntes = personagem.PersonagemCombate?.VidaAtual ?? 0;
+            DescansoService.Aplicar(personagem, dto);
+
+            // O descanso também fica na crônica da campanha
+            var longo = string.Equals(dto.Tipo, "Longo", StringComparison.OrdinalIgnoreCase);
+            var vidaDepois = personagem.PersonagemCombate!.VidaAtual;
+            var detalhe = vidaDepois != vidaAntes ? $"PV {vidaAntes} → {vidaDepois}." : "Sem mudança nos PV.";
+            await _cronica.RegistrarAutomaticoAsync(personagem.CampanhaId, "Descanso",
+                $"{personagem.Nome} fez um descanso {(longo ? "longo" : "curto")}", detalhe);
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
+        }
+
+        /// <summary>
+        /// Copia a ficha inteira para um personagem novo, na mesma campanha ou em outra (biblioteca de criaturas).
+        /// Quem copia precisa ser Mestre da campanha de destino e ter acesso ao original.
+        /// </summary>
+        [HttpPost("{id:int}/duplicar")]
+        public async Task<ActionResult<PersonagemResponseDto>> Duplicar(int id, PersonagemDuplicarDto? dto)
+        {
+            var origem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (origem == null) return NotFound("Personagem não encontrado");
+
+            var destino = dto?.CampanhaId ?? origem.CampanhaId;
+            if (!await _campanhaAuth.IsMestreAsync(destino, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Só o Mestre da campanha de destino pode adicionar personagens a ela.");
+
+            var nome = string.IsNullOrWhiteSpace(dto?.Nome)
+                ? (destino == origem.CampanhaId ? $"{origem.Nome} (cópia)" : origem.Nome)
+                : dto!.Nome!.Trim();
+
+            var copia = PersonagemClonador.Clonar(origem, destino, nome, _currentUser.UserId ?? origem.CriadoPorId);
+            await _uof.PersonagemRepository.CreatePersonagemAsync(copia);
+            await _uof.CommitAsync();
+
+            var salvo = await _uof.PersonagemRepository.GetPersonagemAsync(copia.PersonagemId);
+            return Ok(_mapper.Map<PersonagemResponseDto>(salvo));
+        }
+
+        /// <summary>
+        /// Muda só o estado de jogo da ficha (PV, condições, inspiração, espaços de magia...), sem reenviar a ficha inteira.
+        /// Mesma regra de acesso do resto: dono ou Mestre da campanha.
+        /// </summary>
+        [HttpPut("{id:int}/estado")]
+        public async Task<ActionResult<PersonagemResponseDto>> AtualizarEstado(int id, PersonagemEstadoDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+
+            EstadoPersonagemService.Aplicar(personagem, dto);
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
         }
 
         [HttpDelete("{id:int}")]

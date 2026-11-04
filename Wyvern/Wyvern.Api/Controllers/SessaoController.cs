@@ -18,9 +18,11 @@ public class SessaoController : ControllerBase
     private readonly IMapper _mapper;
     private readonly ICurrentUserService _currentUser;
     private readonly ICampanhaAuthorizationService _campanhaAuth;
+    private readonly ICronicaService _cronica;
 
-    public SessaoController(IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth)
+    public SessaoController(IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica)
     {
+        _cronica = cronica;
         _uof = uof;
         _mapper = mapper;
         _currentUser = currentUser;
@@ -61,6 +63,10 @@ public class SessaoController : ControllerBase
 
         var sessao = _mapper.Map<Sessao>(sessaoDto);
         await _uof.SessaoRepository.CreateSessaoAsync(sessao);
+        await _uof.CommitAsync();
+
+        // A sessão abre um capítulo na crônica da campanha
+        await _cronica.RegistrarAutomaticoAsync(sessao.CampanhaId, "Marco", $"Sessão {sessao.NumeroSessao}: {sessao.Nome}", string.Empty, sessao.SessaoId);
         await _uof.CommitAsync();
 
         var sessaoCompleta = await _uof.SessaoRepository.GetSessaoAsync(sessao.SessaoId);

@@ -24,10 +24,12 @@ namespace Wyvern.Api.Controllers
         private readonly ICombateService _combateService;
         private readonly ICurrentUserService _currentUser;
         private readonly ICampanhaAuthorizationService _campanhaAuth;
+        private readonly ICronicaService _cronica;
 
         public CombateController(IUnitOfWork uof, IHubContext<CombatHub> hubContext, ICombateService combateService,
-            ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth)
+            ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica)
         {
+            _cronica = cronica;
             _uof = uof;
             _hubContext = hubContext;
             _combateService = combateService;
@@ -218,6 +220,10 @@ namespace Wyvern.Api.Controllers
         {
             var (combate, erro) = await CarregarCombateAsync(id, exigeMestre: true);
             if (erro != null) return erro;
+
+            // O combate some ao terminar; antes disso, o que aconteceu nele vai para a crônica da campanha.
+            var (titulo, descricao) = ResumoDeCombate.Criar(combate!);
+            await _cronica.RegistrarAutomaticoAsync(combate!.Sessao!.CampanhaId, "Combate", titulo, descricao, combate.SessaoId);
 
             await _uof.CombateRepository.DeleteCombateAsync(id);
             await _uof.CommitAsync();

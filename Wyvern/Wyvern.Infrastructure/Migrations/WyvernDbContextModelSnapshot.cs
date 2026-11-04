@@ -182,6 +182,93 @@ namespace Wyvern.Infrastructure.Migrations
                     b.ToTable("Campanhas_Membros");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.Cena", b =>
+                {
+                    b.Property<int>("CenaId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("CenaId"));
+
+                    b.Property<int>("Altura")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Ativa")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CampanhaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("ImagemVersao")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Largura")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("LimitarDeslocamento")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<double>("MetrosPorQuadrado")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(1.5);
+
+                    b.Property<bool>("NeblinaAtiva")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("SessaoId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("SoNoTurno")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("TamanhoCelula")
+                        .HasColumnType("integer");
+
+                    b.HasKey("CenaId");
+
+                    b.HasIndex("SessaoId");
+
+                    b.HasIndex("CampanhaId", "Ordem");
+
+                    b.ToTable("Cenas");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.CenaImagem", b =>
+                {
+                    b.Property<int>("CenaId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Dados")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<byte[]>("Neblina")
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("CenaId");
+
+                    b.ToTable("CenaImagens");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.Combate", b =>
                 {
                     b.Property<int>("CombateId")
@@ -271,6 +358,65 @@ namespace Wyvern.Infrastructure.Migrations
                     b.ToTable("CombateParticipantes");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.EventoCampanha", b =>
+                {
+                    b.Property<int>("EventoId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("EventoId"));
+
+                    b.Property<bool>("Automatico")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CampanhaId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("CriadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(4000)
+                        .HasColumnType("character varying(4000)");
+
+                    b.Property<int>("Ordem")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("RotuloData")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int?>("SessaoId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("SoMestre")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
+                    b.HasKey("EventoId");
+
+                    b.HasIndex("CriadoPorId");
+
+                    b.HasIndex("SessaoId");
+
+                    b.HasIndex("CampanhaId", "Ordem");
+
+                    b.ToTable("EventosCampanha");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.Item", b =>
                 {
                     b.Property<int>("ItemId")
@@ -320,6 +466,87 @@ namespace Wyvern.Infrastructure.Migrations
                     b.HasKey("MagiaId");
 
                     b.ToTable("Magias");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.MarcadorCena", b =>
+                {
+                    b.Property<int>("MarcadorId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("MarcadorId"));
+
+                    b.Property<int>("CenaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Coluna")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Icone")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<int>("Linha")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nota")
+                        .IsRequired()
+                        .HasMaxLength(1000)
+                        .HasColumnType("character varying(1000)");
+
+                    b.Property<string>("Titulo")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<bool>("Visivel")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("MarcadorId");
+
+                    b.HasIndex("CenaId");
+
+                    b.ToTable("MarcadoresCena");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.ParedeCena", b =>
+                {
+                    b.Property<int>("ParedeId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ParedeId"));
+
+                    b.Property<bool>("Aberta")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("CenaId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Janela")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("Porta")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("X1")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("X2")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Y1")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Y2")
+                        .HasColumnType("integer");
+
+                    b.HasKey("ParedeId");
+
+                    b.HasIndex("CenaId");
+
+                    b.ToTable("ParedesCena");
                 });
 
             modelBuilder.Entity("Wyvern.Domain.Entities.PastaAnotacao", b =>
@@ -686,6 +913,9 @@ namespace Wyvern.Infrastructure.Migrations
 
                     b.Property<int>("ClasseArmaduraEscudo")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Condicoes")
+                        .HasColumnType("text");
 
                     b.Property<int>("DadoVidaGasto")
                         .HasColumnType("integer");
@@ -1180,6 +1410,135 @@ namespace Wyvern.Infrastructure.Migrations
                         });
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.TokenCena", b =>
+                {
+                    b.Property<int>("TokenId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("TokenId"));
+
+                    b.Property<int>("CenaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Coluna")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("ControladoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Cor")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<double?>("DeslocamentoMetros")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("ImagemVersao")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Inimigo")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Linha")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("MovimentoGasto")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("MovimentoTurno")
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<bool>("Oculto")
+                        .HasColumnType("boolean");
+
+                    b.Property<int?>("ParticipanteId")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("PersonagemId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Tamanho")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Visao")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TokenId");
+
+                    b.HasIndex("CenaId");
+
+                    b.HasIndex("ControladoPorId");
+
+                    b.HasIndex("ParticipanteId");
+
+                    b.HasIndex("PersonagemId");
+
+                    b.ToTable("TokensCena");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.TokenImagem", b =>
+                {
+                    b.Property<int>("TokenId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Dados")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("TokenId");
+
+                    b.ToTable("TokenImagens");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.TracoCena", b =>
+                {
+                    b.Property<int>("TracoId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("TracoId"));
+
+                    b.Property<int>("CenaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Cor")
+                        .IsRequired()
+                        .HasMaxLength(12)
+                        .HasColumnType("character varying(12)");
+
+                    b.Property<int>("Espessura")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Pontos")
+                        .IsRequired()
+                        .HasMaxLength(16000)
+                        .HasColumnType("character varying(16000)");
+
+                    b.Property<int?>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("TracoId");
+
+                    b.HasIndex("CenaId");
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("TracosCena");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.Usuario", b =>
                 {
                     b.Property<int>("UsuarioId")
@@ -1284,6 +1643,35 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Navigation("Usuario");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.Cena", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Campanha", "Campanha")
+                        .WithMany()
+                        .HasForeignKey("CampanhaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wyvern.Domain.Entities.Sessao", "Sessao")
+                        .WithMany()
+                        .HasForeignKey("SessaoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Campanha");
+
+                    b.Navigation("Sessao");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.CenaImagem", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Cena", "Cena")
+                        .WithOne()
+                        .HasForeignKey("Wyvern.Domain.Entities.CenaImagem", "CenaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cena");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.Combate", b =>
                 {
                     b.HasOne("Wyvern.Domain.Entities.Sessao", "Sessao")
@@ -1310,6 +1698,53 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Navigation("Combate");
 
                     b.Navigation("Personagem");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.EventoCampanha", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Campanha", "Campanha")
+                        .WithMany()
+                        .HasForeignKey("CampanhaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wyvern.Domain.Entities.Usuario", "CriadoPor")
+                        .WithMany()
+                        .HasForeignKey("CriadoPorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Wyvern.Domain.Entities.Sessao", "Sessao")
+                        .WithMany()
+                        .HasForeignKey("SessaoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Campanha");
+
+                    b.Navigation("CriadoPor");
+
+                    b.Navigation("Sessao");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.MarcadorCena", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Cena", "Cena")
+                        .WithMany()
+                        .HasForeignKey("CenaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cena");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.ParedeCena", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Cena", "Cena")
+                        .WithMany()
+                        .HasForeignKey("CenaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cena");
                 });
 
             modelBuilder.Entity("Wyvern.Domain.Entities.PastaAnotacao", b =>
@@ -1539,11 +1974,77 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Navigation("Campanha");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.TokenCena", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Cena", "Cena")
+                        .WithMany("Tokens")
+                        .HasForeignKey("CenaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wyvern.Domain.Entities.Usuario", "ControladoPor")
+                        .WithMany()
+                        .HasForeignKey("ControladoPorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Wyvern.Domain.Entities.CombateParticipante", "Participante")
+                        .WithMany()
+                        .HasForeignKey("ParticipanteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.HasOne("Wyvern.Domain.Entities.Personagem", "Personagem")
+                        .WithMany()
+                        .HasForeignKey("PersonagemId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Cena");
+
+                    b.Navigation("ControladoPor");
+
+                    b.Navigation("Participante");
+
+                    b.Navigation("Personagem");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.TokenImagem", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.TokenCena", "Token")
+                        .WithOne()
+                        .HasForeignKey("Wyvern.Domain.Entities.TokenImagem", "TokenId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Token");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.TracoCena", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Cena", "Cena")
+                        .WithMany()
+                        .HasForeignKey("CenaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wyvern.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Cena");
+
+                    b.Navigation("Usuario");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.Campanha", b =>
                 {
                     b.Navigation("Membros");
 
                     b.Navigation("Sessoes");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.Cena", b =>
+                {
+                    b.Navigation("Tokens");
                 });
 
             modelBuilder.Entity("Wyvern.Domain.Entities.Combate", b =>
