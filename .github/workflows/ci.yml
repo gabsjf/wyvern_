@@ -24,3 +24,15 @@ jobs:
         run: dotnet build --no-restore -c Release
       - name: Testes (inclui integração com SQLite e checagem de migrations)
         run: dotnet test --no-build -c Release
+
+  deploy:
+    # Só publica depois que os testes passam, e só em push na branch principal.
+    needs: backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pedir deploy ao Coolify
+        run: |
+          curl --fail-with-body -sS \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            "${{ secrets.COOLIFY_URL }}/api/v1/deploy?uuid=${{ secrets.COOLIFY_API_UUID }}&force=false"
