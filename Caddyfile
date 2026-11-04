@@ -1,0 +1,24 @@
+# Caddy: HTTPS automático (Let's Encrypt), WebSocket e uploads grandes sem configuração extra.
+# DOMAIN vem do .env (ex.: wyvern.sbs).
+
+{$DOMAIN} {
+	root * /srv/front
+	encode zstd gzip
+	try_files {path} /index.html
+	file_server
+}
+
+api.{$DOMAIN} {
+	encode zstd gzip
+	# Mapas sobem até 8 MB; o Caddy não limita por padrão, mas deixamos explícito.
+	request_body {
+		max_size 12MB
+	}
+	# O reverse_proxy já repassa Upgrade/Connection (SignalR: /cenahub, /mesahub, /combathub).
+	reverse_proxy api:8080
+}
+
+# www -> domínio principal
+www.{$DOMAIN} {
+	redir https://{$DOMAIN}{uri} permanent
+}

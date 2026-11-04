@@ -11,6 +11,8 @@ namespace Wyvern.Domain.Interfaces.Repositories.Combate
         Task<CombateEntity?> GetCombateAsync(int id);
         Task<CombateEntity?> GetActiveCombateByCampanhaAsync(int campanhaId);
         Task<CombateEntity?> GetActiveCombateBySessaoAsync(int sessaoId);
+        /// <summary>O combate ativo em que esse combatente está; nulo se o combate dele já acabou.</summary>
+        Task<CombateEntity?> GetAtivoDoParticipanteAsync(int participanteId);
         Task CreateCombateAsync(CombateEntity combate);
         Task<CombateEntity> UpdateCombateAsync(CombateEntity combate);
         Task<CombateEntity> DeleteCombateAsync(int id);

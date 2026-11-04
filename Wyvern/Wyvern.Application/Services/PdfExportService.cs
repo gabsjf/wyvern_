@@ -1,11 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using PdfSharp.Pdf;
+using PdfSharp.Pdf.Advanced;
 using PdfSharp.Pdf.IO;
-using PdfSharp.Pdf.AcroForms;
 using Wyvern.Domain.Entities;
 
 namespace Wyvern.Application.Services
 {
+    /// <summary>
+    /// Preenche o modelo de ficha (Templates/ficha55.pdf) com os dados do personagem.
+    /// Os valores são gravados direto no dicionário de cada campo do PDF, sem criar objetos de campo do PDFsharp:
+    /// isso dispensa fontes instaladas no servidor (a imagem Docker não tem) e funciona igual no Windows e no Linux.
+    /// </summary>
     public class PdfExportService : IPdfExportService
     {
         public PdfExportService()
@@ -18,95 +26,57 @@ namespace Wyvern.Application.Services
             if (!File.Exists(templatePath))
                 throw new FileNotFoundException($"Template PDF não encontrado em: {templatePath}");
 
+            var ficha = FichaPdfMapper.Mapear(p);
+
             using var doc = PdfReader.Open(templatePath, PdfDocumentOpenMode.Modify);
-            if (doc.AcroForm == null) throw new Exception("O template não possui campos AcroForm");
-            
-            var fields = doc.AcroForm.Fields;
+            var acroForm = doc.Internals.Catalog.Elements.GetDictionary("/AcroForm")
+                ?? throw new InvalidOperationException("O template não possui campos de formulário (AcroForm).");
 
-            if (doc.AcroForm.Elements.ContainsKey("/NeedAppearances"))
-                doc.AcroForm.Elements["/NeedAppearances"] = new PdfSharp.Pdf.PdfBoolean(true);
-            else
-                doc.AcroForm.Elements.Add("/NeedAppearances", new PdfSharp.Pdf.PdfBoolean(true));
+            var campos = PdfCampos.Coletar(acroForm);
 
-            void SetField(string name, string value)
+            foreach (var (nome, valor) in ficha.Textos)
             {
-                if (fields.Names.Contains(name) && fields[name] is PdfTextField txt)
-                {
-                    txt.Value = new PdfSharp.Pdf.PdfString(value ?? "");
-                }
+                if (campos.TryGetValue(PdfCampos.NormalizarNome(nome), out var campo))
+                    DefinirTexto(campo, valor);
             }
 
-            // 5.5e Mapping (Reverso)
-            SetField("Esquerda Centro Single 12", p.Nome);
-            
-            if (p.PersonagemPlayer != null)
+            foreach (var (nome, marcada) in ficha.Caixas)
             {
-                SetField("Esquerda Centro Single 12_3", p.PersonagemPlayer.Classe);
-                SetField("Esquerda Centro Single 12_5", p.PersonagemPlayer.Raca);
-                SetField("Esquerda Centro Single 12_2", p.PersonagemPlayer.Antecedente);
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_2", p.PersonagemPlayer.Nivel.ToString());
-                SetField("Caixa de texto 8", p.PersonagemPlayer.Alinhamento);
-                SetField("Esquerda Centro Single 12_4", p.PersonagemPlayer.Subclasse);
-                SetField("N#C3#BAmeros Centralizados HV 10 Single", p.PersonagemPlayer.Tamanho);
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_3", p.PersonagemPlayer.Xp.ToString());
+                if (campos.TryGetValue(PdfCampos.NormalizarNome(nome), out var campo))
+                    DefinirCaixa(campo, marcada);
             }
 
-            if (p.PersonagemDetalhes != null)
-            {
-                SetField("Multi esquerda 10", p.PersonagemDetalhes.CaracteristicasClasse);
-                
-                // Quebrar a string formatada do importador
-                var details = p.PersonagemDetalhes.HistoriaPersonalidade ?? "";
-                SetField("Multi esquerda 10_3", ExtractSection(details, "Traços de Espécie:"));
-                SetField("Multi esquerda 10_4", ExtractSection(details, "Talentos:"));
-                SetField("Caixa de texto 6_2", ExtractSection(details, "História:"));
-            }
-
-            if (p.Atributo != null)
-            {
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_15", p.Atributo.Forca.ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_13", p.Atributo.Destreza.ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_11", p.Atributo.Constituicao.ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_5", p.Atributo.Inteligencia.ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_7", p.Atributo.Sabedoria.ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_9", p.Atributo.Carisma.ToString());
-                
-                // Calculando os modificadores para os campos grandes
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_14", CalcMod(p.Atributo.Forca).ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_12", CalcMod(p.Atributo.Destreza).ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_10", CalcMod(p.Atributo.Constituicao).ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single", CalcMod(p.Atributo.Inteligencia).ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_6", CalcMod(p.Atributo.Sabedoria).ToString());
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_8", CalcMod(p.Atributo.Carisma).ToString());
-            }
-
-            if (p.PersonagemCombate != null)
-            {
-                SetField("N#C3#BAmeros Centralizados HV 8 Single_4", p.PersonagemCombate.ClasseArmadura.ToString());
-                SetField("N#C3#BAmeros Centralizados HV 12 Single_2", p.PersonagemCombate.Iniciativa.ToString());
-                SetField("N#C3#BAmeros Centralizados HV 12 Single_3", p.PersonagemCombate.Deslocamento.ToString());
-                SetField("Esquerda baixo 12_4", p.PersonagemCombate.VidaMaxima.ToString());
-                SetField("Esquerda baixo 12", p.PersonagemCombate.VidaAtual.ToString());
-                SetField("Esquerda baixo 12_5", p.PersonagemCombate.VidaTemporaria.ToString());
-            }
+            // Pede ao leitor de PDF que desenhe os campos a partir dos valores (cobre os que não têm aparência pronta).
+            acroForm.Elements["/NeedAppearances"] = new PdfBoolean(true);
 
             using var ms = new MemoryStream();
             doc.Save(ms, false);
             return ms.ToArray();
         }
 
-        private int CalcMod(int score) => (score - 10) / 2;
-
-        private string ExtractSection(string text, string sectionName)
+        private static void DefinirTexto(PdfDictionary campo, string valor)
         {
-            if (string.IsNullOrEmpty(text)) return "";
-            var lines = text.Split('\n');
-            foreach (var line in lines)
-            {
-                if (line.StartsWith(sectionName))
-                    return line.Substring(sectionName.Length).Trim();
-            }
-            return "";
+            // Unicode (UTF-16): preserva acentos e qualquer símbolo, em vez do conjunto limitado do PDFDocEncoding.
+            campo.Elements["/V"] = new PdfString(valor, PdfStringEncoding.Unicode);
+            // Remove a aparência antiga para o leitor redesenhar o campo com o novo valor.
+            campo.Elements.Remove("/AP");
+        }
+
+        private static void DefinirCaixa(PdfDictionary campo, bool marcada)
+        {
+            var estadoLigado = NomeDoEstadoLigado(campo);
+            var valor = marcada ? estadoLigado : "/Off";
+
+            campo.Elements["/V"] = new PdfName(valor);
+            campo.Elements["/AS"] = new PdfName(valor);
+        }
+
+        // O estado "ligado" de uma caixa tem nome próprio no modelo (/Yes, /On...): é a chave de /AP /N que não é /Off.
+        private static string NomeDoEstadoLigado(PdfDictionary campo)
+        {
+            var normal = campo.Elements.GetDictionary("/AP")?.Elements.GetDictionary("/N");
+            var ligado = normal?.Elements.Keys.FirstOrDefault(k => k != "/Off");
+            return string.IsNullOrEmpty(ligado) ? "/Yes" : ligado;
         }
     }
 }

@@ -24,6 +24,9 @@ namespace Wyvern.Domain.Entities
 
         public DateTime CriadoEm { get; set; } = DateTime.Now;
 
+        /// <summary>Autor da pasta. Nulo em pastas anteriores a este campo: só o Mestre as altera.</summary>
+        public int? CriadoPorId { get; set; }
+
         [JsonIgnore]
         public ICollection<Anotacao> Anotacoes { get; set; } = new List<Anotacao>();
     }

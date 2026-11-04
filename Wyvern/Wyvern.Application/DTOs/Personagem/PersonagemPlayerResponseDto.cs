@@ -12,5 +12,8 @@ namespace Wyvern.Application.DTOs.Personagem
         public int Nivel { get; set; }
         public int Xp { get; set; }
         public string Alinhamento { get; set; } = string.Empty;
+        public string? Antecedente { get; set; }
+        public string? Subclasse { get; set; }
+        public string? Tamanho { get; set; }
     }
 }

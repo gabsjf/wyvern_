@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Collections.Generic;
+using System.Linq;
 using PdfSharp.Pdf;
 using PdfSharp.Pdf.IO;
 using Wyvern.Domain.Entities;
@@ -89,46 +90,53 @@ namespace Wyvern.Application.Services
             }
             else
             {
-                p.Nome = GetString("CharacterName");
-                if (string.IsNullOrEmpty(p.Nome)) p.Nome = GetString("CharacterName 2"); // fallback
-                if (string.IsNullOrEmpty(p.Nome)) p.Nome = "Personagem Desconhecido";
-                p.Descricao = "Importado do PDF 5e Padrão";
+                return LerFichaPadrao(doc, campanhaId, criadoPorId);
+            }
+            return p;
+        }
 
-                p.PersonagemPlayer.Classe = GetString("ClassLevel");
-                p.PersonagemPlayer.Raca = GetString("Race ");
-                p.PersonagemPlayer.Antecedente = GetString("Background");
-                p.PersonagemPlayer.Alinhamento = GetString("Alignment");
-                p.PersonagemPlayer.Nivel = 1;
+        // Ficha padrão de D&D 5e: lê os valores direto dos dicionários dos campos (mesma técnica da exportação)
+        // e entrega ao FichaPdfLeitor, que faz o caminho inverso do FichaPdfMapper.
+        private static Personagem LerFichaPadrao(PdfDocument doc, int campanhaId, int criadoPorId)
+        {
+            var acroForm = doc.Internals.Catalog.Elements.GetDictionary("/AcroForm")
+                ?? throw new Exception("O PDF não contém campos de formulário (AcroForm).");
 
-                string pt = GetString("PersonalityTraits ");
-                string idl = GetString("Ideals");
-                string bnd = GetString("Bonds");
-                string flw = GetString("Flaws");
-                string bks = GetString("Backstory");
-                p.PersonagemDetalhes.HistoriaPersonalidade = $"Traços: {pt}\nIdeais: {idl}\nVínculos: {bnd}\nDefeitos: {flw}\nHistória: {bks}";
-                p.PersonagemDetalhes.CaracteristicasClasse = GetString("Features and Traits");
+            var textos = new Dictionary<string, string>();
+            var caixas = new Dictionary<string, bool>();
+            var campos = PdfCampos.Coletar(acroForm);
 
-                p.Atributo.Forca = GetInt("STR");
-                p.Atributo.Destreza = GetInt("DEX");
-                p.Atributo.Constituicao = GetInt("CON");
-                p.Atributo.Inteligencia = GetInt("INT");
-                p.Atributo.Sabedoria = GetInt("WIS");
-                p.Atributo.Carisma = GetInt("CHA");
-
-                p.PersonagemCombate.ClasseArmadura = GetInt("AC");
-                p.PersonagemCombate.Iniciativa = GetInt("Initiative");
-                p.PersonagemCombate.Deslocamento = GetString("Speed");
-                p.PersonagemCombate.VidaMaxima = GetInt("HPMax");
-                p.PersonagemCombate.VidaAtual = GetInt("HPCurrent");
-                p.PersonagemCombate.VidaTemporaria = GetInt("HPTemp");
-
-                var equipText = GetString("Equipment");
-                if (!string.IsNullOrEmpty(equipText)) {
-                    p.PersonagemItens.Add(new PersonagemItem { Nome = equipText, TipoItem = "Equipamento Bruto", Raridade = "Comum" });
-                }
+            foreach (var nome in FichaPdfNomes())
+            {
+                if (!campos.TryGetValue(PdfCampos.NormalizarNome(nome), out var campo)) continue;
+                if (nome.StartsWith("Check Box")) caixas[nome] = PdfCampos.Marcada(campo);
+                else textos[nome] = PdfCampos.Texto(campo);
             }
 
-            return p;
+            return FichaPdfLeitor.Ler(textos, caixas, campanhaId, criadoPorId);
+        }
+
+        // Todos os campos que o leitor conhece: o que o mapeador sabe escrever.
+        private static IEnumerable<string> FichaPdfNomes()
+        {
+            var nomes = new List<string>
+            {
+                "CharacterName", "CharacterName 2", "ClassLevel", "Background", "Race", "Alignment", "XP",
+                "ProfBonus", "AC", "Initiative", "Speed", "HPMax", "HPCurrent", "HPTemp", "HDTotal", "Inspiration",
+                "CP", "SP", "EP", "GP", "PP", "Equipment", "Features and Traits", "ProficienciesLang", "Backstory", "Feat+Traits",
+                "PersonalityTraits", "Ideals", "Bonds", "Flaws", "SpellcastingAbility 2",
+                "Wpn Name", "Wpn Name 2", "Wpn Name 3", "Wpn1 AtkBonus", "Wpn2 AtkBonus", "Wpn3 AtkBonus",
+                "Wpn1 Damage", "Wpn2 Damage", "Wpn3 Damage",
+            };
+            nomes.AddRange(FichaPdfMapper.CamposAtributos.Select(x => x.Pontuacao));
+            nomes.AddRange(FichaPdfMapper.Pericias.Select(x => x.Campo));
+            nomes.AddRange(FichaPdfMapper.Salvaguardas.Select(x => x.Campo));
+            nomes.AddRange(FichaPdfMapper.Salvaguardas.Select(x => x.Caixa));
+            nomes.AddRange(FichaPdfMapper.Pericias.Select(x => x.Caixa));
+            nomes.AddRange(Enumerable.Range(12, 6).Select(i => $"Check Box {i}"));
+            for (var n = 1; n <= 9; n++) { nomes.Add($"SlotsTotal {18 + n}"); nomes.Add($"SlotsRemaining {18 + n}"); }
+            nomes.AddRange(FichaPdfMapper.LinhasDeMagia.Values.SelectMany(x => x));
+            return nomes;
         }
     }
 }

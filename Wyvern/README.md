@@ -91,7 +91,7 @@ Controller  →  Application Service  →  Repository  →  DbContext  →  Data
 - [ASP.NET Core](https://dotnet.microsoft.com/apps/aspnet) — Framework web
 - [C#](https://docs.microsoft.com/dotnet/csharp) — Linguagem principal
 - [Entity Framework Core](https://docs.microsoft.com/ef/core) — ORM
-- [SQL Server](https://www.microsoft.com/sql-server) — Banco de dados
+- [PostgreSQL](https://www.postgresql.org) — Banco de dados (SQLite apenas em desenvolvimento local e testes)
 
 **Frontend**
 - [Angular](https://angular.io) — Framework frontend
@@ -110,37 +110,58 @@ Controller  →  Application Service  →  Repository  →  DbContext  →  Data
 
 - [.NET SDK](https://dotnet.microsoft.com/download)
 - [Node.js](https://nodejs.org) e [Angular CLI](https://angular.io/cli)
-- [SQL Server](https://www.microsoft.com/sql-server)
+- [PostgreSQL](https://www.postgresql.org) (só em produção; em desenvolvimento a API usa SQLite sem instalar nada)
 
 ### Backend
 
 ```bash
-# Clone o repositório
-git clone <repository-url>
+git clone https://github.com/gabsjf/wyvern_.git
+cd wyvern_/Wyvern
 
-# Acesse a pasta da API
-cd Wyvern.Api
+# Desenvolvimento: usa SQLite (appsettings.Development.json) e uma chave JWT de desenvolvimento
+dotnet run --project Wyvern.Api
 
-# Restaure os pacotes
-dotnet restore
-
-# Execute as migrations
-dotnet ef database update
-
-# Inicie a aplicação
-dotnet run
+# Testes de integração
+dotnet test
 ```
+
+#### Configuração (produção)
+
+A API **não sobe** sem estas variáveis. Veja `.env.example` na raiz do repositório.
+
+| Variável | Descrição |
+|---|---|
+| `ConnectionStrings__DefaultConnection` | Conexão PostgreSQL |
+| `Jwt__Key` | Chave de assinatura do JWT (mínimo 32 caracteres) |
+| `Cors__AllowedOrigins__0` | Origem do frontend permitida |
+| `Admin__Emails__0` | (opcional) e-mail autorizado a editar os catálogos de itens, magias e perícias |
+
+#### Banco de dados e migrations
+
+Em produção (PostgreSQL) a API aplica as migrations ao iniciar. Um banco criado antes das migrations (via
+`EnsureCreated`) é adotado automaticamente: a migration `Baseline` é registrada como já aplicada, sem recriar tabelas.
+
+```bash
+# Instala a ferramenta local (uma vez)
+dotnet tool restore
+
+# Depois de alterar entidades ou o DbContext
+dotnet ef migrations add NomeDaMudanca --project Wyvern.Infrastructure
+
+# Gera o SQL para revisar antes de aplicar
+dotnet ef migrations script --idempotent --project Wyvern.Infrastructure
+```
+
+Um teste (`Migrations_cobrem_todo_o_modelo`) falha se o modelo mudar sem a migration correspondente.
 
 ### Frontend
 
+O frontend fica no repositório [Wyvern.Front](https://github.com/gabsjf/Wyvern.Front).
+
 ```bash
-# Acesse a pasta do frontend
-cd Wyvern.Front/Wyvern
-
-# Instale as dependências
+git clone https://github.com/gabsjf/Wyvern.Front.git
+cd Wyvern.Front
 npm install
-
-# Inicie o servidor de desenvolvimento
 ng serve
 ```
 

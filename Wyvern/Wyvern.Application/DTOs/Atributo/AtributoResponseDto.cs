@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Text;
 
@@ -19,5 +19,12 @@ namespace Wyvern.Application.DTOs.Atributo
         public int Sabedoria { get; set; }
 
         public int Carisma { get; set; }
+        // Proficiência em salvaguardas: existia na entidade e no formulário, mas faltava nos DTOs e era descartada.
+        public bool ProficienciaSalvaguardaForca { get; set; }
+        public bool ProficienciaSalvaguardaDestreza { get; set; }
+        public bool ProficienciaSalvaguardaConstituicao { get; set; }
+        public bool ProficienciaSalvaguardaInteligencia { get; set; }
+        public bool ProficienciaSalvaguardaSabedoria { get; set; }
+        public bool ProficienciaSalvaguardaCarisma { get; set; }
     }
 }

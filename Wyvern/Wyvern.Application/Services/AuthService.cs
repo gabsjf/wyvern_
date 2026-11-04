@@ -7,6 +7,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Wyvern.Application.DTOs.Auth;
 using Wyvern.Domain.Entities;
+using Wyvern.Domain.Exceptions;
 using Wyvern.Domain.Interfaces.Repositories;
 using BCrypt.Net;
 
@@ -14,28 +15,33 @@ namespace Wyvern.Application.Services
 {
     public class AuthService : IAuthService
     {
+        private static readonly string[] PapeisPermitidos = { "Mestre", "Jogador" };
+
         private readonly IUnitOfWork _uof;
-        private readonly IConfiguration _configuration;
+        private readonly JwtSettings _jwt;
+        private readonly string[] _admins;
 
         public AuthService(IUnitOfWork uof, IConfiguration configuration)
         {
             _uof = uof;
-            _configuration = configuration;
+            _jwt = JwtSettings.FromConfiguration(configuration);
+            _admins = configuration.GetSection("Admin:Emails").Get<string[]>() ?? Array.Empty<string>();
         }
 
         public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
         {
-            // Verify if email exists
-            var existingUser = await _uof.UsuarioRepository.GetByEmailAsync(dto.Email);
+            var email = dto.Email.Trim();
+
+            var existingUser = await _uof.UsuarioRepository.GetByEmailAsync(email);
             if (existingUser != null)
-                throw new Exception("Email já está em uso.");
+                throw new RegraNegocioException("Email já está em uso.");
 
             var user = new Usuario
             {
-                Nome = dto.Nome,
-                Email = dto.Email,
+                Nome = dto.Nome.Trim(),
+                Email = email,
                 SenhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha),
-                Papel = dto.Papel ?? "Jogador",
+                Papel = NormalizarPapel(dto.Papel),
                 CriadoEm = DateTime.Now,
                 Ativo = true
             };
@@ -43,50 +49,59 @@ namespace Wyvern.Application.Services
             await _uof.UsuarioRepository.CreateUsuarioAsync(user);
             await _uof.CommitAsync();
 
-            var token = GenerateJwtToken(user);
-
-            return new AuthResponseDto
-            {
-                UsuarioId = user.UsuarioId,
-                Nome = user.Nome,
-                Email = user.Email,
-                Papel = user.Papel,
-                Token = token
-            };
+            return CriarResposta(user);
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
         {
-            var user = await _uof.UsuarioRepository.GetByEmailAsync(dto.Email);
-            if (user == null || !BCrypt.Net.BCrypt.Verify(dto.Senha, user.SenhaHash))
-                throw new Exception("Email ou senha inválidos.");
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(dto.Email.Trim());
+            if (user == null || !user.Ativo || !BCrypt.Net.BCrypt.Verify(dto.Senha, user.SenhaHash))
+                throw new RegraNegocioException("Email ou senha inválidos.");
 
-            var token = GenerateJwtToken(user);
+            return CriarResposta(user);
+        }
 
+        // O papel global é só uma preferência de interface; qualquer valor fora da lista vira "Jogador".
+        private static string NormalizarPapel(string? papel)
+        {
+            return PapeisPermitidos.FirstOrDefault(p => string.Equals(p, papel?.Trim(), StringComparison.OrdinalIgnoreCase))
+                   ?? "Jogador";
+        }
+
+        private AuthResponseDto CriarResposta(Usuario user)
+        {
             return new AuthResponseDto
             {
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
                 Papel = user.Papel,
-                Token = token
+                Token = GenerateJwtToken(user)
             };
         }
 
         private string GenerateJwtToken(Usuario user)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
-            var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Secret"] ?? "WyvernSuperSecretKey1234567890!!");
+            var key = Encoding.UTF8.GetBytes(_jwt.Key);
+            var claims = new List<Claim>
+            {
+                new Claim(ClaimTypes.NameIdentifier, user.UsuarioId.ToString()),
+                new Claim(ClaimTypes.Name, user.Nome),
+                new Claim(ClaimTypes.Email, user.Email),
+                new Claim("role", user.Papel ?? "Jogador")
+            };
+
+            // Único privilégio global: editar os catálogos compartilhados (itens, magias, perícias).
+            if (_admins.Contains(user.Email, StringComparer.OrdinalIgnoreCase))
+                claims.Add(new Claim("admin", "true"));
+
             var tokenDescriptor = new SecurityTokenDescriptor
             {
-                Subject = new ClaimsIdentity(new[]
-                {
-                    new Claim(ClaimTypes.NameIdentifier, user.UsuarioId.ToString()),
-                    new Claim(ClaimTypes.Name, user.Nome),
-                    new Claim(ClaimTypes.Email, user.Email),
-                    new Claim("role", user.Papel ?? "Jogador")
-                }),
-                Expires = DateTime.UtcNow.AddDays(7),
+                Subject = new ClaimsIdentity(claims),
+                Issuer = _jwt.Issuer,
+                Audience = _jwt.Audience,
+                Expires = DateTime.UtcNow.AddMinutes(_jwt.ExpiresMinutes),
                 SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(key), SecurityAlgorithms.HmacSha256Signature)
             };
             var token = tokenHandler.CreateToken(tokenDescriptor);

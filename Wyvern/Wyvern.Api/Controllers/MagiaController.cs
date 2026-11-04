@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Magia;
 using Wyvern.Domain.Entities;
@@ -38,6 +38,8 @@ namespace Wyvern.Api.Controllers
         return Ok(magiaDto);
     }
 
+    [Authorize(Policy = "CatalogoAdmin")]
+
     [HttpPost]
     public async Task<ActionResult<MagiaResponseDto>> CreateMagia(MagiaCreateDto magiaDto)
     {
@@ -52,6 +54,8 @@ namespace Wyvern.Api.Controllers
         return CreatedAtAction(nameof(GetMagiaById), new { id = magia.MagiaId }, magiaCriadaDto);
     }
 
+    [Authorize(Policy = "CatalogoAdmin")]
+
     [HttpPut("{id:int}")]
     public async Task<ActionResult> UpdateMagia(int id, MagiaUpdateDto magiaDto)
     {
@@ -62,6 +66,8 @@ namespace Wyvern.Api.Controllers
         await _uof.CommitAsync();
         return Ok(_mapper.Map<MagiaResponseDto>(magiaBanco));
     }
+
+    [Authorize(Policy = "CatalogoAdmin")]
 
     [HttpDelete("{id:int}")]
     public async Task<ActionResult> DeleteMagia(int id)

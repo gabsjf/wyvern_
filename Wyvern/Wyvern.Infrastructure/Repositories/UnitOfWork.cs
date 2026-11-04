@@ -10,6 +10,8 @@ using Wyvern.Infrastructure.Repositories.Usuario;
 using Wyvern.Infrastructure.Repositories.Combate;
 using Wyvern.Infrastructure.Repositories.Anotacao;
 using Wyvern.Infrastructure.Repositories.PastaAnotacao;
+using Wyvern.Infrastructure.Repositories.Cronica;
+using Wyvern.Domain.Interfaces.Repositories.Cronica;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Domain.Interfaces.Repositories;
 using Wyvern.Domain.Interfaces.Repositories.Campanha;
@@ -39,11 +41,13 @@ namespace Wyvern.Infrastructure.Repositories
             MagiaRepository = new MagiaRepository(_context);
             PericiaRepository = new PericiaRepository(_context);
             PersonagemRepository = new PersonagemRepository(_context, _currentUserService);
-            SessaoRepository = new SessaoRepository(_context);
+            SessaoRepository = new SessaoRepository(_context, _currentUserService);
             UsuarioRepository = new UsuarioRepository(_context);
             AnotacaoRepository = new AnotacaoRepository(_context);
             PastaAnotacaoRepository = new PastaAnotacaoRepository(_context);
             CombateRepository = new CombateRepository(_context);
+            EventoCampanhaRepository = new EventoCampanhaRepository(_context);
+            CenaRepository = new Wyvern.Infrastructure.Repositories.Cena.CenaRepository(_context);
         }
 
         public ICampanhaRepository CampanhaRepository { get; }
@@ -56,6 +60,8 @@ namespace Wyvern.Infrastructure.Repositories
         public IAnotacaoRepository AnotacaoRepository { get; }
         public IPastaAnotacaoRepository PastaAnotacaoRepository { get; }
         public ICombateRepository CombateRepository { get; }
+        public IEventoCampanhaRepository EventoCampanhaRepository { get; }
+        public Wyvern.Domain.Interfaces.Repositories.Cena.ICenaRepository CenaRepository { get; }
 
         public void Commit()
         {

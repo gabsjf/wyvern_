@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Wyvern
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 9.0.x
+      - name: Restaurar ferramentas e pacotes
+        run: |
+          dotnet tool restore
+          dotnet restore
+      - name: Build
+        run: dotnet build --no-restore -c Release
+      - name: Testes (inclui integração com SQLite e checagem de migrations)
+        run: dotnet test --no-build -c Release
+
+  deploy:
+    # Só publica depois que os testes passam, e só em push na branch principal.
+    needs: backend
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pedir deploy ao Coolify
+        run: |
+          curl --fail-with-body -sS \
+            -H "Authorization: Bearer ${{ secrets.COOLIFY_TOKEN }}" \
+            "${{ secrets.COOLIFY_URL }}/api/v1/deploy?uuid=${{ secrets.COOLIFY_API_UUID }}&force=false"

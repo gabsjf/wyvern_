@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Microsoft.EntityFrameworkCore;
+using Npgsql.EntityFrameworkCore.PostgreSQL;
 using Wyvern.Domain.Entities;
 
 namespace Wyvern.Infrastructure.Data
@@ -28,12 +29,20 @@ namespace Wyvern.Infrastructure.Data
         public DbSet<Magia> Magias { get; set; }
         public DbSet<Item> Itens { get; set; }
         public DbSet<Campanha> Campanhas { get; set; }
-        public DbSet<CampanhaJogador> CampanhasJogadores { get; set; }
+        public DbSet<CampanhaMembro> CampanhasMembros { get; set; }
         public DbSet<Atributo> Atributos { get; set; }
         public DbSet<PersonagemDetalhes> PersonagemDetalhes { get; set; }
         public DbSet<PersonagemDinheiro> PersonagemDinheiros { get; set; }
         public DbSet<PersonagemAtaque> PersonagemAtaques { get; set; }
 
+        public DbSet<EventoCampanha> EventosCampanha { get; set; }
+        public DbSet<Cena> Cenas { get; set; }
+        public DbSet<CenaImagem> CenaImagens { get; set; }
+        public DbSet<TokenCena> TokensCena { get; set; }
+        public DbSet<TokenImagem> TokenImagens { get; set; }
+        public DbSet<ParedeCena> ParedesCena { get; set; }
+        public DbSet<MarcadorCena> MarcadoresCena { get; set; }
+        public DbSet<TracoCena> TracosCena { get; set; }
         public DbSet<Combate> Combates { get; set; }
         public DbSet<CombateParticipante> CombateParticipantes { get; set; }
 
@@ -145,17 +154,29 @@ namespace Wyvern.Infrastructure.Data
                 .HasForeignKey(c => c.MestreId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            modelBuilder.Entity<CampanhaJogador>()
+            modelBuilder.Entity<CampanhaMembro>()
                 .HasOne(cj => cj.Campanha)
-                .WithMany(c => c.Jogadores)
+                .WithMany(c => c.Membros)
                 .HasForeignKey(cj => cj.CampanhaId)
                 .OnDelete(DeleteBehavior.Cascade);
 
-            modelBuilder.Entity<CampanhaJogador>()
+            modelBuilder.Entity<CampanhaMembro>()
                 .HasOne(cj => cj.Usuario)
                 .WithMany()
                 .HasForeignKey(cj => cj.UsuarioId)
                 .OnDelete(DeleteBehavior.Restrict);
+
+            // Papel guardado como inteiro (1 = Mestre, 2 = Jogador)
+            modelBuilder.Entity<CampanhaMembro>()
+                .Property(m => m.Papel)
+                .HasConversion<int>();
+
+            // Autor da pasta; se o usuário sumir, a pasta fica sem autor (só o Mestre a altera)
+            modelBuilder.Entity<PastaAnotacao>()
+                .HasOne<Usuario>()
+                .WithMany()
+                .HasForeignKey(p => p.CriadoPorId)
+                .OnDelete(DeleteBehavior.SetNull);
 
             modelBuilder.Entity<PastaAnotacao>()
                 .HasMany(p => p.Anotacoes)
@@ -175,8 +196,80 @@ namespace Wyvern.Infrastructure.Data
                 .HasForeignKey(a => a.CriadoPorId)
                 .OnDelete(DeleteBehavior.Restrict);
 
+            // Crônica da campanha: some com a campanha; apagar uma sessão ou um usuário não apaga os eventos
+            modelBuilder.Entity<EventoCampanha>()
+                .HasOne(e => e.Campanha).WithMany().HasForeignKey(e => e.CampanhaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<EventoCampanha>()
+                .HasOne(e => e.Sessao).WithMany().HasForeignKey(e => e.SessaoId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<EventoCampanha>()
+                .HasOne(e => e.CriadoPor).WithMany().HasForeignKey(e => e.CriadoPorId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<EventoCampanha>()
+                .HasIndex(e => new { e.CampanhaId, e.Ordem });
+
+            // VTT: as cenas somem com a campanha; a imagem e os tokens somem com a cena. Apagar um personagem, um
+            // combatente ou um usuário só solta o token (ele continua no mapa, sem o vínculo).
+            modelBuilder.Entity<Cena>()
+                .HasOne(c => c.Campanha).WithMany().HasForeignKey(c => c.CampanhaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Cena>()
+                .HasIndex(c => new { c.CampanhaId, c.Ordem });
+            modelBuilder.Entity<CenaImagem>()
+                .HasOne(i => i.Cena).WithOne().HasForeignKey<CenaImagem>(i => i.CenaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Cena>().Property(c => c.MetrosPorQuadrado).HasDefaultValue(1.5);
+            modelBuilder.Entity<Cena>().Property(c => c.LimitarDeslocamento).HasDefaultValue(true);
+            modelBuilder.Entity<Cena>()
+                .HasOne(c => c.Sessao).WithMany().HasForeignKey(c => c.SessaoId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<TokenImagem>()
+                .HasOne(i => i.Token).WithOne().HasForeignKey<TokenImagem>(i => i.TokenId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ParedeCena>()
+                .HasOne(p => p.Cena).WithMany().HasForeignKey(p => p.CenaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<MarcadorCena>()
+                .HasOne(m => m.Cena).WithMany().HasForeignKey(m => m.CenaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TracoCena>()
+                .HasOne(t => t.Cena).WithMany().HasForeignKey(t => t.CenaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TracoCena>()
+                .HasOne(t => t.Usuario).WithMany().HasForeignKey(t => t.UsuarioId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<TokenCena>()
+                .HasOne(t => t.Cena).WithMany(c => c.Tokens).HasForeignKey(t => t.CenaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TokenCena>()
+                .HasOne(t => t.Personagem).WithMany().HasForeignKey(t => t.PersonagemId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<TokenCena>()
+                .HasOne(t => t.Participante).WithMany().HasForeignKey(t => t.ParticipanteId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<TokenCena>()
+                .HasOne(t => t.ControladoPor).WithMany().HasForeignKey(t => t.ControladoPorId).OnDelete(DeleteBehavior.SetNull);
+
             // 4. Mapeamento Manual de Nomes de Tabela
             modelBuilder.Entity<Usuario>().ToTable("Usuario");
+
+            // Integridade que antes só existia na checagem da aplicação (sujeita a corrida entre requisições)
+            modelBuilder.Entity<Usuario>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
+
+            modelBuilder.Entity<Campanha>()
+                .HasIndex(c => c.TokenConvite)
+                .IsUnique();
+
+            modelBuilder.Entity<CampanhaMembro>()
+                .HasIndex(cj => new { cj.CampanhaId, cj.UsuarioId })
+                .IsUnique();
+
+            // No máximo um combate ativo por sessão
+            var filtroAtivo = Database.IsNpgsql() ? "\"Ativo\" = true" : "\"Ativo\" = 1";
+            modelBuilder.Entity<Combate>()
+                .HasIndex(c => c.SessaoId)
+                .IsUnique()
+                .HasFilter(filtroAtivo);
+
+            // Concorrência otimista no combate (dois "próximo turno" simultâneos não se atropelam).
+            // xmin é uma coluna de sistema do PostgreSQL: não gera coluna nova no banco.
+            if (Database.IsNpgsql())
+            {
+                modelBuilder.Entity<Combate>()
+                    .Property<uint>("xmin")
+                    .HasColumnType("xid")
+                    .ValueGeneratedOnAddOrUpdate()
+                    .IsConcurrencyToken();
+            }
 
             // 5. Seed Data
             modelBuilder.Entity<TipoPersonagem>().HasData(

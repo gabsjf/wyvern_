@@ -1,4 +1,4 @@
-using AutoMapper;
+﻿using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
 using Wyvern.Application.DTOs.Item;
 using Wyvern.Domain.Entities;
@@ -38,6 +38,7 @@ namespace Wyvern.Api.Controllers
             var itemDto = _mapper.Map<ItemResponseDto>(item);
             return Ok(itemDto);
         }
+        [Authorize(Policy = "CatalogoAdmin")]
         [HttpPost]
         public async Task<ActionResult<ItemResponseDto>> CreateItem(CreateItemDto itemDto)
         {
@@ -51,6 +52,8 @@ namespace Wyvern.Api.Controllers
             var itemCriadoDto = _mapper.Map<ItemResponseDto>(item);
             return CreatedAtAction(nameof(GetItemById), new { id = item.ItemId }, itemCriadoDto);
         }
+
+        [Authorize(Policy = "CatalogoAdmin")]
 
         [HttpPut("{id:int}")]
         public async Task<ActionResult> UpdateItem(int id, ItemUpdateDto itemDto)
@@ -70,6 +73,7 @@ namespace Wyvern.Api.Controllers
             return Ok(_mapper.Map<ItemResponseDto>(itemNoBanco));
             
         }
+        [Authorize(Policy = "CatalogoAdmin")]
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> DeleteItem(int id)
         {

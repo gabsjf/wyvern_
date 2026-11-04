@@ -13,6 +13,8 @@ using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 using System.Text;
+using System.Threading.RateLimiting;
+using Microsoft.AspNetCore.HttpOverrides;
 
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
@@ -34,13 +36,17 @@ builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();
+builder.Services.AddScoped<ICampanhaService, CampanhaService>();
+builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICombateService, CombateService>();
+builder.Services.AddScoped<ICronicaService, CronicaService>();
 
 builder.Services.AddHttpContextAccessor();
 builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "WyvernSuperSecretKey1234567890!!";
-var key = Encoding.ASCII.GetBytes(jwtSecret);
+// Falha na inicialização se Jwt:Key não estiver configurada (não existe chave padrão).
+var jwt = JwtSettings.FromConfiguration(builder.Configuration);
+var key = Encoding.UTF8.GetBytes(jwt.Key);
 
 builder.Services.AddAuthentication(x =>
 {
@@ -50,45 +56,93 @@ builder.Services.AddAuthentication(x =>
 .AddJwtBearer(x =>
 {
     x.MapInboundClaims = false; // Prevents claim mapping in newer .NET versions
-    x.RequireHttpsMetadata = false;
-    x.SaveToken = true;
+    x.RequireHttpsMetadata = !builder.Environment.IsDevelopment();
     x.TokenValidationParameters = new TokenValidationParameters
     {
         ValidateIssuerSigningKey = true,
         IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false,
-        ValidateAudience = false,
+        ValidateIssuer = true,
+        ValidIssuer = jwt.Issuer,
+        ValidateAudience = true,
+        ValidAudience = jwt.Audience,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.FromMinutes(1),
         RoleClaimType = "role"
     };
+
+    // WebSockets não enviam o header Authorization: o cliente SignalR manda o token em ?access_token=.
+    x.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            if (!string.IsNullOrEmpty(accessToken) && IsHubPath(context.HttpContext.Request.Path))
+                context.Token = accessToken;
+
+            return Task.CompletedTask;
+        }
+    };
 });
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("CatalogoAdmin", policy => policy.RequireClaim("admin", "true"));
+});
 
 builder.Services.AddOpenApi();
 builder.Services.AddAutoMapper(cfg => cfg.AddMaps(typeof(AtributoProfile).Assembly));
 builder.Services.AddSignalR();
+builder.Services.AddSingleton<Wyvern.Application.Services.HistoricoRolagens>();
 
+// Atrás de proxy (Render, nginx) o IP real vem em X-Forwarded-For; sem isso o rate limit contaria o proxy inteiro.
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.KnownNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+var authPermitLimit = builder.Configuration.GetValue("RateLimit:AuthPermitLimit", 10);
+
+builder.Services.AddRateLimiter(options =>
+{
+    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // Por padrão, 10 tentativas por minuto por IP em login, cadastro e entrada por convite.
+    options.AddPolicy("auth", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = authPermitLimit, Window = TimeSpan.FromMinutes(1) }));
+
+    // Importação de PDF é cara: 5 por minuto por usuário (ou IP, se anônimo).
+    options.AddPolicy("upload", httpContext => RateLimitPartition.GetFixedWindowLimiter(
+        httpContext.User.FindFirst("nameid")?.Value ?? httpContext.Connection.RemoteIpAddress?.ToString() ?? "desconhecido",
+        _ => new FixedWindowRateLimiterOptions { PermitLimit = 5, Window = TimeSpan.FromMinutes(1) }));
+});
+
+// Origens permitidas vêm da configuração (Cors:AllowedOrigins); sem entradas, nenhuma origem externa é aceita.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowAll", policy =>
+    options.AddPolicy("Frontend", policy =>
     {
-        policy.SetIsOriginAllowed(origin => true) // allow any origin
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyMethod()
               .AllowAnyHeader()
               .AllowCredentials(); // SignalR needs this
     });
 });
 
-var connectionString = builder.Configuration.GetConnectionString("DefaultConnection") ?? "";
+// PostgreSQL é o banco de produção. SQLite só existe para desenvolvimento local e testes e precisa ser
+// pedido explicitamente (Database:Provider = Sqlite), para nunca ser escolhido por engano em produção.
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection")
+    ?? throw new InvalidOperationException("Configure ConnectionStrings:DefaultConnection (variável ConnectionStrings__DefaultConnection).");
+var usarSqlite = string.Equals(builder.Configuration["Database:Provider"], "Sqlite", StringComparison.OrdinalIgnoreCase);
+
 builder.Services.AddDbContext<WyvernDbContext>(options =>
 {
-    if (connectionString.Contains("Host=", StringComparison.OrdinalIgnoreCase))
-    {
-        options.UseNpgsql(connectionString);
-    }
-    else
-    {
+    if (usarSqlite)
         options.UseSqlite(connectionString);
-    }
+    else
+        options.UseNpgsql(connectionString);
 });
 builder.Services.AddScoped<CampanhaRepository>();
 var app = builder.Build();
@@ -96,7 +150,7 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var db = scope.ServiceProvider.GetRequiredService<WyvernDbContext>();
-    db.Database.EnsureCreated();
+    await DatabaseInitializer.InitializeAsync(db, app.Logger);
 }
 
 if (app.Environment.IsDevelopment())
@@ -107,20 +161,31 @@ if (app.Environment.IsDevelopment())
         options.WithTitle("Wyvern API")
                .WithTheme(ScalarTheme.Moon);
     });
-    app.ConfigureExceptionHandler();
 }
 
+app.UseForwardedHeaders();
+app.ConfigureExceptionHandler(incluirDetalhes: app.Environment.IsDevelopment());
+
 app.UseHttpsRedirection();
-app.UseCors("AllowAll");
+app.UseCors("Frontend");
 
 app.UseAuthentication();
+app.UseRateLimiter(); // depois da autenticação: a política "upload" particiona por usuário
 app.UseAuthorization();
 
 app.MapControllers();
 app.MapHub<Wyvern.Api.Hubs.CombatHub>("/combathub");
-
+app.MapHub<Wyvern.Api.Hubs.MesaHub>("/mesahub");
+app.MapHub<Wyvern.Api.Hubs.CenaHub>("/cenahub");
+app.MapGet("/health", () => Results.Ok(new { status = "ok" })).AllowAnonymous();
 
 app.Run();
+
+static bool IsHubPath(PathString path) =>
+    path.StartsWithSegments("/combathub") || path.StartsWithSegments("/mesahub") || path.StartsWithSegments("/cenahub");
+
+// Necessário para os testes de integração (WebApplicationFactory<Program>).
+public partial class Program { }
 
 [JsonSerializable(typeof(IEnumerable<Usuario>))]
 [JsonSerializable(typeof(Usuario))]

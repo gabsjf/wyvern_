@@ -29,6 +29,7 @@ namespace Wyvern.Infrastructure.Repositories.Combate
         public async Task<CombateEntity?> GetCombateAsync(int id)
         {
             return await _context.Combates
+                .Include(c => c.Sessao)
                 .Include(c => c.Participantes)
                     .ThenInclude(p => p.Personagem)
                 .FirstOrDefaultAsync(c => c.CombateId == id && c.Ativo);
@@ -70,6 +71,14 @@ namespace Wyvern.Infrastructure.Repositories.Combate
             combate.Ativo = false;
 
             return combate;
+        }
+
+        public async Task<CombateEntity?> GetAtivoDoParticipanteAsync(int participanteId)
+        {
+            return await _context.Combates
+                .Include(c => c.Participantes)
+                .Where(c => c.Ativo && c.Participantes!.Any(p => p.ParticipanteId == participanteId))
+                .FirstOrDefaultAsync();
         }
 
         public async Task<CombateEntity?> GetActiveCombateByCampanhaAsync(int campanhaId)

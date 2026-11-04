@@ -12,17 +12,21 @@ namespace Wyvern.Application.Services
             _uof = uof;
         }
 
-        public bool IsMestre(Campanha? campanha, int? userId)
+        public async Task<PapelCampanha?> ObterPapelAsync(int campanhaId, int? userId)
         {
-            return campanha != null && userId.HasValue && campanha.MestreId == userId.Value;
+            if (!userId.HasValue) return null;
+
+            return await _uof.CampanhaRepository.ObterPapelAsync(campanhaId, userId.Value);
         }
 
         public async Task<bool> IsMestreAsync(int campanhaId, int? userId)
         {
-            if (!userId.HasValue) return false;
+            return await ObterPapelAsync(campanhaId, userId) == PapelCampanha.Mestre;
+        }
 
-            var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(campanhaId);
-            return IsMestre(campanha, userId);
+        public async Task<bool> IsMembroAsync(int campanhaId, int? userId)
+        {
+            return await ObterPapelAsync(campanhaId, userId) != null;
         }
     }
 }

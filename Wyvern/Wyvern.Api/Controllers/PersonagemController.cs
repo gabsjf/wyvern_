@@ -4,6 +4,7 @@ using Wyvern.Application.DTOs.Personagem;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.RateLimiting;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Application.Services;
 
@@ -18,13 +19,15 @@ namespace Wyvern.Api.Controllers
         private readonly IMapper _mapper;
         private readonly ICurrentUserService _currentUser;
         private readonly ICampanhaAuthorizationService _campanhaAuth;
+        private readonly ICronicaService _cronica;
 
-        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth)
+        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica)
         {
             _uof = uof;
             _mapper = mapper;
             _currentUser = currentUser;
             _campanhaAuth = campanhaAuth;
+            _cronica = cronica;
         }
 
         [HttpGet]
@@ -64,9 +67,14 @@ namespace Wyvern.Api.Controllers
             var personagem = _mapper.Map<Personagem>(personagemDto);
             personagem.CriadoEm = DateTime.Now;
             personagem.Ativo = true;
+            EstadoPersonagemService.EncherEspacosDeMagiaNovos(personagem.PersonagemConjuracao);
 
+            // GetCampanhaAsync já filtra por participação: nulo significa que a campanha não existe ou o usuário não faz parte dela.
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(personagemDto.CampanhaId);
-            bool isMestre = _campanhaAuth.IsMestre(campanha, _currentUser.UserId);
+            if (campanha == null)
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você não participa desta campanha.");
+
+            bool isMestre = await _campanhaAuth.IsMestreAsync(personagemDto.CampanhaId, _currentUser.UserId);
 
             if (!isMestre)
             {
@@ -102,6 +110,14 @@ namespace Wyvern.Api.Controllers
             var pBanco = await _uof.PersonagemRepository.GetPersonagemAsync(id);
 
             if (pBanco == null) return NotFound("Personagem não encontrado");
+
+            // Só o Mestre muda o tipo do personagem (Jogador/NPC/Monstro) ou mexe no bloco de NPC.
+            bool isMestre = await _campanhaAuth.IsMestreAsync(pBanco.CampanhaId, _currentUser.UserId);
+            if (!isMestre)
+            {
+                personagemDto.TipoId = pBanco.TipoId;
+                personagemDto.PersonagemNpc = null;
+            }
 
             pBanco.Nome = personagemDto.Nome;
             pBanco.Descricao = personagemDto.Descricao;
@@ -218,19 +234,104 @@ namespace Wyvern.Api.Controllers
             return Ok(_mapper.Map<PersonagemResponseDto>(pBanco));
         }
 
+        /// <summary>
+        /// Registra um descanso curto ou longo. O repositório só devolve o personagem ao dono ou ao Mestre da campanha
+        /// (para os demais ele não existe), então essa é a mesma regra de quem pode editar a ficha.
+        /// </summary>
+        [HttpPost("{id:int}/descanso")]
+        public async Task<ActionResult<PersonagemResponseDto>> Descansar(int id, PersonagemDescansoDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+
+            var vidaAntes = personagem.PersonagemCombate?.VidaAtual ?? 0;
+            DescansoService.Aplicar(personagem, dto);
+
+            // O descanso também fica na crônica da campanha
+            var longo = string.Equals(dto.Tipo, "Longo", StringComparison.OrdinalIgnoreCase);
+            var vidaDepois = personagem.PersonagemCombate!.VidaAtual;
+            var detalhe = vidaDepois != vidaAntes ? $"PV {vidaAntes} → {vidaDepois}." : "Sem mudança nos PV.";
+            await _cronica.RegistrarAutomaticoAsync(personagem.CampanhaId, "Descanso",
+                $"{personagem.Nome} fez um descanso {(longo ? "longo" : "curto")}", detalhe);
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
+        }
+
+        /// <summary>
+        /// Copia a ficha inteira para um personagem novo, na mesma campanha ou em outra (biblioteca de criaturas).
+        /// Quem copia precisa ser Mestre da campanha de destino e ter acesso ao original.
+        /// </summary>
+        [HttpPost("{id:int}/duplicar")]
+        public async Task<ActionResult<PersonagemResponseDto>> Duplicar(int id, PersonagemDuplicarDto? dto)
+        {
+            var origem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (origem == null) return NotFound("Personagem não encontrado");
+
+            var destino = dto?.CampanhaId ?? origem.CampanhaId;
+            if (!await _campanhaAuth.IsMestreAsync(destino, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Só o Mestre da campanha de destino pode adicionar personagens a ela.");
+
+            var nome = string.IsNullOrWhiteSpace(dto?.Nome)
+                ? (destino == origem.CampanhaId ? $"{origem.Nome} (cópia)" : origem.Nome)
+                : dto!.Nome!.Trim();
+
+            var copia = PersonagemClonador.Clonar(origem, destino, nome, _currentUser.UserId ?? origem.CriadoPorId);
+            await _uof.PersonagemRepository.CreatePersonagemAsync(copia);
+            await _uof.CommitAsync();
+
+            var salvo = await _uof.PersonagemRepository.GetPersonagemAsync(copia.PersonagemId);
+            return Ok(_mapper.Map<PersonagemResponseDto>(salvo));
+        }
+
+        /// <summary>
+        /// Muda só o estado de jogo da ficha (PV, condições, inspiração, espaços de magia...), sem reenviar a ficha inteira.
+        /// Mesma regra de acesso do resto: dono ou Mestre da campanha.
+        /// </summary>
+        [HttpPut("{id:int}/estado")]
+        public async Task<ActionResult<PersonagemResponseDto>> AtualizarEstado(int id, PersonagemEstadoDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+
+            EstadoPersonagemService.Aplicar(personagem, dto);
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
+        }
+
         [HttpDelete("{id:int}")]
         public async Task<ActionResult> DeletePersonagem(int id)
         {
-            var personagem = await _uof.PersonagemRepository.DeletePersonagemAsync(id);
-            if (personagem == null) return NotFound("Personagem não encontrado");
+            // GetPersonagemAsync só devolve personagens do próprio usuário ou de campanhas em que ele é Mestre.
+            var permitido = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (permitido == null) return NotFound("Personagem não encontrado");
+
+            await _uof.PersonagemRepository.DeletePersonagemAsync(id);
             await _uof.CommitAsync();
             return Ok(new { mensagem = "Personagem desativado com sucesso", id });
         }
 
+        private const long TamanhoMaximoPdf = 5 * 1024 * 1024;
+
         [HttpPost("import-pdf")]
+        [EnableRateLimiting("upload")]
+        [RequestSizeLimit(TamanhoMaximoPdf + 64 * 1024)]
         public async Task<ActionResult<PersonagemResponseDto>> ImportPdf(IFormFile file, [FromForm] int campanhaId, [FromServices] Wyvern.Application.Services.IPdfParserService pdfParserService)
         {
             if (file == null || file.Length == 0) return BadRequest("Nenhum arquivo enviado.");
+            if (file.Length > TamanhoMaximoPdf) return BadRequest("O PDF deve ter no máximo 5 MB.");
+
+            // Confere a assinatura "%PDF-" em vez de confiar na extensão ou no Content-Type.
+            var cabecalho = new byte[5];
+            using (var leitura = file.OpenReadStream())
+            {
+                if (await leitura.ReadAsync(cabecalho, 0, cabecalho.Length) < cabecalho.Length
+                    || System.Text.Encoding.ASCII.GetString(cabecalho) != "%PDF-")
+                    return BadRequest("O arquivo enviado não é um PDF válido.");
+            }
 
             var campanha = await _uof.CampanhaRepository.GetCampanhaAsync(campanhaId);
             if (campanha == null) return BadRequest("Campanha inválida ou você não tem acesso a ela.");
@@ -242,7 +343,21 @@ namespace Wyvern.Api.Controllers
                 using var stream = file.OpenReadStream();
                 var personagem = pdfParserService.ParsePdf(stream, campanhaId, _currentUser.UserId.Value);
 
-                if (!_campanhaAuth.IsMestre(campanha, _currentUser.UserId))
+                // O PDF traz perícias só pelo nome: liga ao cadastro (aceita "Lidar com" / "Adestrar Animais") e ignora o que não existe.
+                if (personagem.PersonagemPericias?.Count > 0)
+                {
+                    var catalogo = (await _uof.PericiaRepository.GetPericiasAsync()).ToList();
+                    var ligadas = new List<PersonagemPericia>();
+                    foreach (var pp in personagem.PersonagemPericias)
+                    {
+                        var achada = catalogo.FirstOrDefault(c => Wyvern.Application.Services.FichaPdfMapper.MesmaPericia(c.Nome, pp.Pericia?.Nome));
+                        if (achada == null || ligadas.Any(l => l.PericiaId == achada.PericiaId)) continue;
+                        ligadas.Add(new PersonagemPericia { PericiaId = achada.PericiaId, Bonus = pp.Bonus, Proficiente = true });
+                    }
+                    personagem.PersonagemPericias = ligadas;
+                }
+
+                if (!await _campanhaAuth.IsMestreAsync(campanhaId, _currentUser.UserId))
                 {
                     personagem.TipoId = 1;
                     personagem.PersonagemNpc = null;
@@ -271,7 +386,7 @@ namespace Wyvern.Api.Controllers
 
             try
             {
-                var templatePath = Path.Combine(Directory.GetCurrentDirectory(), "Templates", "ficha55.pdf");
+                var templatePath = Path.Combine(AppContext.BaseDirectory, "Templates", "ficha55.pdf");
                 var pdfBytes = pdfExportService.ExportPdf(pBanco, templatePath);
                 return File(pdfBytes, "application/pdf", $"{pBanco.Nome ?? "Personagem"}.pdf");
             }

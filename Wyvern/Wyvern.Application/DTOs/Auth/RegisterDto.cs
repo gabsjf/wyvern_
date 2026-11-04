@@ -15,7 +15,8 @@ namespace Wyvern.Application.DTOs.Auth
         [MinLength(6, ErrorMessage = "A senha deve ter no mínimo 6 caracteres")]
         public string Senha { get; set; }
 
-        [Required(ErrorMessage = "O Papel é obrigatório")]
-        public string Papel { get; set; }
+        // Apenas preferência de interface ("Mestre" ou "Jogador"). Não concede nenhuma permissão:
+        // a autorização é sempre decidida pela relação do usuário com cada campanha.
+        public string? Papel { get; set; }
     }
 }
