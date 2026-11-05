@@ -22,6 +22,28 @@ namespace Wyvern.Api.Extensions
 
         public static void Apagar(HttpContext context) => context.Response.Cookies.Delete(Nome, Opcoes(context, null));
 
+        /// <summary>
+        /// Refresh token: vive 30 dias, mas só o navegador o reenvia para /Auth (Path), então não viaja nas demais requisições.
+        /// </summary>
+        public const string NomeRefresh = "wyvern_rt";
+        private const string CaminhoRefresh = "/Auth";
+
+        public static void GravarRefresh(HttpContext context, string token, DateTime expiraEmUtc) =>
+            context.Response.Cookies.Append(NomeRefresh, token, OpcoesRefresh(context, new DateTimeOffset(expiraEmUtc, TimeSpan.Zero)));
+
+        public static void ApagarRefresh(HttpContext context) =>
+            context.Response.Cookies.Delete(NomeRefresh, OpcoesRefresh(context, null));
+
+        public static bool TemCookie(HttpRequest request) =>
+            request.Cookies.ContainsKey(Nome) || request.Cookies.ContainsKey(NomeRefresh);
+
+        private static CookieOptions OpcoesRefresh(HttpContext context, DateTimeOffset? expira)
+        {
+            var opcoes = Opcoes(context, expira);
+            opcoes.Path = CaminhoRefresh;
+            return opcoes;
+        }
+
         public static bool ClienteNativo(HttpRequest request) =>
             string.Equals(request.Headers[CabecalhoCliente], "native", StringComparison.OrdinalIgnoreCase);
 

@@ -43,6 +43,7 @@ namespace Wyvern.Infrastructure.Repositories
             PersonagemRepository = new PersonagemRepository(_context, _currentUserService);
             SessaoRepository = new SessaoRepository(_context, _currentUserService);
             UsuarioRepository = new UsuarioRepository(_context);
+            RefreshTokenRepository = new Wyvern.Infrastructure.Repositories.RefreshToken.RefreshTokenRepository(_context);
             AnotacaoRepository = new AnotacaoRepository(_context);
             PastaAnotacaoRepository = new PastaAnotacaoRepository(_context);
             CombateRepository = new CombateRepository(_context);
@@ -57,6 +58,7 @@ namespace Wyvern.Infrastructure.Repositories
         public IPersonagemRepository PersonagemRepository { get; }
         public ISessaoRepository SessaoRepository { get; }
         public IUsuarioRepository UsuarioRepository { get; }
+        public Wyvern.Domain.Interfaces.Repositories.RefreshToken.IRefreshTokenRepository RefreshTokenRepository { get; }
         public IAnotacaoRepository AnotacaoRepository { get; }
         public IPastaAnotacaoRepository PastaAnotacaoRepository { get; }
         public ICombateRepository CombateRepository { get; }

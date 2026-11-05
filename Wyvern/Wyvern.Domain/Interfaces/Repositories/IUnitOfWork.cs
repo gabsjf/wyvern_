@@ -22,6 +22,7 @@ namespace Wyvern.Domain.Interfaces.Repositories
         IPersonagemRepository PersonagemRepository { get; }
         ISessaoRepository SessaoRepository { get; }
         IUsuarioRepository UsuarioRepository { get; }
+        Wyvern.Domain.Interfaces.Repositories.RefreshToken.IRefreshTokenRepository RefreshTokenRepository { get; }
         Wyvern.Domain.Interfaces.Repositories.Combate.ICombateRepository CombateRepository { get; }
         Wyvern.Domain.Interfaces.Repositories.Anotacao.IAnotacaoRepository AnotacaoRepository { get; }
         IPastaAnotacaoRepository PastaAnotacaoRepository { get; }

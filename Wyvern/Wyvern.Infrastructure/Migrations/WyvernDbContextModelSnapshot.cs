@@ -1338,6 +1338,49 @@ namespace Wyvern.Infrastructure.Migrations
                     b.ToTable("PersonagemTracosEspeciais");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.RefreshToken", b =>
+                {
+                    b.Property<int>("RefreshTokenId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("RefreshTokenId"));
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiraEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<Guid>("FamiliaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("RevogadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<DateTime?>("UsadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("RefreshTokenId");
+
+                    b.HasIndex("FamiliaId");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UsuarioId");
+
+                    b.ToTable("RefreshTokens");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.Sessao", b =>
                 {
                     b.Property<int>("SessaoId")
@@ -1961,6 +2004,17 @@ namespace Wyvern.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Personagem");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.RefreshToken", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Usuario", "Usuario")
+                        .WithMany()
+                        .HasForeignKey("UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Usuario");
                 });
 
             modelBuilder.Entity("Wyvern.Domain.Entities.Sessao", b =>

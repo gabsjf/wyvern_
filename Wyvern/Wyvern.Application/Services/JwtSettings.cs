@@ -3,7 +3,7 @@ using Microsoft.Extensions.Configuration;
 namespace Wyvern.Application.Services
 {
     /// <summary>
-    /// Configuração do JWT lida de uma única fonte (Jwt:Key, Jwt:Issuer, Jwt:Audience, Jwt:ExpiresMinutes).
+    /// Configuração do JWT lida de uma única fonte (Jwt:Key, Jwt:Issuer, Jwt:Audience, Jwt:ExpiresMinutes, Jwt:RefreshDays).
     /// Não há chave padrão: sem chave configurada a aplicação não sobe.
     /// </summary>
     public class JwtSettings
@@ -13,7 +13,10 @@ namespace Wyvern.Application.Services
         public string Key { get; init; } = string.Empty;
         public string Issuer { get; init; } = string.Empty;
         public string Audience { get; init; } = string.Empty;
+        /// <summary>Vida do access token (JWT). Curta: quem o roubar só o usa por esse tempo.</summary>
         public int ExpiresMinutes { get; init; }
+        /// <summary>Vida do refresh token, contada a partir de cada troca.</summary>
+        public int RefreshDays { get; init; }
 
         public static JwtSettings FromConfiguration(IConfiguration configuration)
         {
@@ -31,7 +34,10 @@ namespace Wyvern.Application.Services
                 Audience = configuration["Jwt:Audience"] ?? "WyvernFront",
                 ExpiresMinutes = int.TryParse(configuration["Jwt:ExpiresMinutes"], out var minutes) && minutes > 0
                     ? minutes
-                    : 24 * 60
+                    : 15,
+                RefreshDays = int.TryParse(configuration["Jwt:RefreshDays"], out var days) && days > 0
+                    ? days
+                    : 30
             };
         }
     }
