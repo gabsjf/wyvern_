@@ -68,6 +68,38 @@ namespace Wyvern.Application.Services
                    ?? "Jogador";
         }
 
+        public const string ClaimTicketHub = "hub_ticket";
+        private static readonly TimeSpan ValidadeTicketHub = TimeSpan.FromSeconds(60);
+
+        // O WebSocket não manda cabeçalho, então o app nativo leva o token na URL; o que vai lá é este ticket, que expira em
+        // segundos e só vale nos hubs, e não o JWT da sessão. Copia a identidade do token atual (sem consultar o banco).
+        public string GerarTicketHub(ClaimsPrincipal usuario)
+        {
+            var claims = new List<Claim> { new Claim(ClaimTicketHub, "1") };
+            AdicionarSePresente(claims, usuario, ClaimTypes.NameIdentifier, "nameid");
+            AdicionarSePresente(claims, usuario, ClaimTypes.Name, "unique_name");
+            AdicionarSePresente(claims, usuario, ClaimTypes.Email, "email");
+            AdicionarSePresente(claims, usuario, "role", "role");
+            AdicionarSePresente(claims, usuario, "admin", "admin");
+
+            var tokenHandler = new JwtSecurityTokenHandler();
+            var tokenDescriptor = new SecurityTokenDescriptor
+            {
+                Subject = new ClaimsIdentity(claims),
+                Issuer = _jwt.Issuer,
+                Audience = _jwt.Audience,
+                Expires = DateTime.UtcNow.Add(ValidadeTicketHub),
+                SigningCredentials = new SigningCredentials(new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Key)), SecurityAlgorithms.HmacSha256Signature)
+            };
+            return tokenHandler.WriteToken(tokenHandler.CreateToken(tokenDescriptor));
+        }
+
+        private static void AdicionarSePresente(List<Claim> claims, ClaimsPrincipal origem, string tipoNoToken, string tipoNoPrincipal)
+        {
+            var valor = origem.FindFirst(tipoNoPrincipal)?.Value;
+            if (!string.IsNullOrEmpty(valor)) claims.Add(new Claim(tipoNoToken, valor));
+        }
+
         private AuthResponseDto CriarResposta(Usuario user)
         {
             return new AuthResponseDto
