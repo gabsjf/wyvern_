@@ -68,6 +68,15 @@ namespace Wyvern.Api.Controllers
             });
         }
 
+        /// <summary>
+        /// Ticket de ~60 s para abrir um hub. O app nativo o usa no lugar do JWT da sessão, que de outro modo iria na URL do WebSocket.
+        /// </summary>
+        // Fora do limite "auth": cada negociação e reconexão de hub pede um ticket novo.
+        [HttpPost("hub-ticket")]
+        [Authorize]
+        [DisableRateLimiting]
+        public IActionResult TicketHub() => Ok(new { ticket = _authService.GerarTicketHub(User) });
+
         [HttpPost("logout")]
         [DisableRateLimiting]
         public IActionResult Logout()

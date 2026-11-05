@@ -47,6 +47,7 @@ builder.Services.AddScoped<ICurrentUserService, CurrentUserService>();
 // Falha na inicialização se Jwt:Key não estiver configurada (não existe chave padrão).
 var jwt = JwtSettings.FromConfiguration(builder.Configuration);
 var key = Encoding.UTF8.GetBytes(jwt.Key);
+const string TokenNaUrl = "wyvern.token-na-url"; // chave em HttpContext.Items: o token desta requisição veio de ?access_token=
 
 builder.Services.AddAuthentication(x =>
 {
@@ -72,6 +73,7 @@ builder.Services.AddAuthentication(x =>
 
     // Ordem de onde o token vem: cabeçalho Authorization (app nativo, testes), ?access_token= nos hubs (o WebSocket
     // do app nativo não manda cabeçalho) e, na web, o cookie HttpOnly.
+    // Na URL só vale o ticket de hub (curto, ver AuthService.GerarTicketHub), nunca o JWT da sessão; e o ticket só vale nos hubs.
     x.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
@@ -81,9 +83,24 @@ builder.Services.AddAuthentication(x =>
 
             var accessToken = context.Request.Query["access_token"];
             if (!string.IsNullOrEmpty(accessToken) && IsHubPath(context.HttpContext.Request.Path))
+            {
                 context.Token = accessToken;
+                context.HttpContext.Items[TokenNaUrl] = true;
+            }
             else if (context.Request.Cookies.TryGetValue(SessionCookie.Nome, out var cookie) && !string.IsNullOrEmpty(cookie))
                 context.Token = cookie;
+
+            return Task.CompletedTask;
+        },
+        OnTokenValidated = context =>
+        {
+            var ehTicket = context.Principal?.HasClaim(c => c.Type == AuthService.ClaimTicketHub) == true;
+            var naUrl = context.HttpContext.Items.ContainsKey(TokenNaUrl);
+
+            if (naUrl && !ehTicket)
+                context.Fail("O token da sessão não é aceito na URL; use um ticket de hub.");
+            else if (ehTicket && !IsHubPath(context.HttpContext.Request.Path))
+                context.Fail("O ticket de hub só vale nos hubs.");
 
             return Task.CompletedTask;
         }
