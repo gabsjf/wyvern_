@@ -34,6 +34,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
 builder.Services.AddScoped<IPdfParserService, PdfParserService>();
 builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
+builder.Services.AddMemoryCache();
+builder.Services.AddScoped<ISessaoValidator, SessaoValidator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();
 builder.Services.AddScoped<ICampanhaService, CampanhaService>();
@@ -92,17 +94,29 @@ builder.Services.AddAuthentication(x =>
 
             return Task.CompletedTask;
         },
-        OnTokenValidated = context =>
+        OnTokenValidated = async context =>
         {
             var ehTicket = context.Principal?.HasClaim(c => c.Type == AuthService.ClaimTicketHub) == true;
             var naUrl = context.HttpContext.Items.ContainsKey(TokenNaUrl);
 
             if (naUrl && !ehTicket)
+            {
                 context.Fail("O token da sessão não é aceito na URL; use um ticket de hub.");
-            else if (ehTicket && !IsHubPath(context.HttpContext.Request.Path))
+                return;
+            }
+            if (ehTicket && !IsHubPath(context.HttpContext.Request.Path))
+            {
                 context.Fail("O ticket de hub só vale nos hubs.");
+                return;
+            }
 
-            return Task.CompletedTask;
+            // O JWT em si não é revogável: a sessão por trás dele (família do refresh token, claim "sid") é conferida a cada
+            // requisição. Logout, reuso detectado ou usuário desativado derrubam o access token na hora, não só quando ele vence.
+            // Token sem "sid" (emitido antes desta checagem existir) não é aceito: não haveria como revogá-lo.
+            var sid = context.Principal?.FindFirst(AuthService.SidClaim)?.Value;
+            var validador = context.HttpContext.RequestServices.GetRequiredService<ISessaoValidator>();
+            if (!Guid.TryParse(sid, out var sessaoId) || !await validador.EstaAtivaAsync(sessaoId))
+                context.Fail("Sessão encerrada.");
         }
     };
 });

@@ -29,6 +29,9 @@ namespace Wyvern.Infrastructure.Repositories.RefreshToken
                 .Where(t => t.FamiliaId == familiaId && t.RevogadoEm == null)
                 .ExecuteUpdateAsync(s => s.SetProperty(t => t.RevogadoEm, agora));
 
+        public Task<bool> SessaoAtivaAsync(Guid familiaId) =>
+            _context.RefreshTokens.AnyAsync(t => t.FamiliaId == familiaId && t.RevogadoEm == null && t.Usuario!.Ativo);
+
         public Task ApagarExpiradosAsync(int usuarioId, DateTime agora) =>
             _context.RefreshTokens
                 .Where(t => t.UsuarioId == usuarioId && t.ExpiraEm < agora)

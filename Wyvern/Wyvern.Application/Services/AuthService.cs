@@ -22,10 +22,12 @@ namespace Wyvern.Application.Services
         private readonly IUnitOfWork _uof;
         private readonly JwtSettings _jwt;
         private readonly string[] _admins;
+        private readonly ISessaoValidator _sessoes;
 
-        public AuthService(IUnitOfWork uof, IConfiguration configuration)
+        public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes)
         {
             _uof = uof;
+            _sessoes = sessoes;
             _jwt = JwtSettings.FromConfiguration(configuration);
             _admins = configuration.GetSection("Admin:Emails").Get<string[]>() ?? Array.Empty<string>();
         }
@@ -84,14 +86,14 @@ namespace Wyvern.Application.Services
                 // Dentro da tolerância é quase certo uma corrida legítima (duas abas, rede ruim): só nega, sem derrubar a sessão.
                 var usadoEm = atual.UsadoEm ?? agora;
                 if (agora - usadoEm > ToleranciaReuso)
-                    await _uof.RefreshTokenRepository.RevogarFamiliaAsync(atual.FamiliaId, agora);
+                    await RevogarFamiliaAsync(atual.FamiliaId, agora);
                 throw SessaoExpirada();
             }
 
             var user = await _uof.UsuarioRepository.GetUsuarioAsync(atual.UsuarioId);
             if (user == null || !user.Ativo)
             {
-                await _uof.RefreshTokenRepository.RevogarFamiliaAsync(atual.FamiliaId, agora);
+                await RevogarFamiliaAsync(atual.FamiliaId, agora);
                 throw SessaoExpirada();
             }
 
@@ -106,7 +108,14 @@ namespace Wyvern.Application.Services
 
             var atual = await _uof.RefreshTokenRepository.GetByHashAsync(HashDoToken(refreshToken));
             if (atual != null)
-                await _uof.RefreshTokenRepository.RevogarFamiliaAsync(atual.FamiliaId, DateTime.UtcNow);
+                await RevogarFamiliaAsync(atual.FamiliaId, DateTime.UtcNow);
+        }
+
+        // Revoga no banco e esquece o cache de sessão ativa, para os access tokens dessa família pararem de valer já.
+        private async Task RevogarFamiliaAsync(Guid familiaId, DateTime agora)
+        {
+            await _uof.RefreshTokenRepository.RevogarFamiliaAsync(familiaId, agora);
+            _sessoes.Invalidar(familiaId);
         }
 
         private static RegraNegocioException SessaoExpirada() => new("Sessão expirada. Entre novamente.");
@@ -122,6 +131,7 @@ namespace Wyvern.Application.Services
         }
 
         public const string ClaimTicketHub = "hub_ticket";
+        public const string SidClaim = "sid";
         private static readonly TimeSpan ValidadeTicketHub = TimeSpan.FromSeconds(60);
 
         // O WebSocket não manda cabeçalho, então o app nativo leva o token na URL; o que vai lá é este ticket, que expira em
@@ -134,6 +144,7 @@ namespace Wyvern.Application.Services
             AdicionarSePresente(claims, usuario, ClaimTypes.Email, "email");
             AdicionarSePresente(claims, usuario, "role", "role");
             AdicionarSePresente(claims, usuario, "admin", "admin");
+            AdicionarSePresente(claims, usuario, SidClaim, SidClaim);
 
             var tokenHandler = new JwtSecurityTokenHandler();
             var tokenDescriptor = new SecurityTokenDescriptor
@@ -176,13 +187,14 @@ namespace Wyvern.Application.Services
                 Nome = user.Nome,
                 Email = user.Email,
                 Papel = user.Papel,
-                Token = GenerateJwtToken(user),
+                Token = GenerateJwtToken(user, familiaId),
                 RefreshToken = refreshToken,
                 RefreshExpiraEm = expiraEm
             };
         }
 
-        private string GenerateJwtToken(Usuario user)
+        // "sid" liga o token à família do refresh token: é por ela que o servidor sabe se a sessão foi revogada.
+        private string GenerateJwtToken(Usuario user, Guid sessaoId)
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.UTF8.GetBytes(_jwt.Key);
@@ -192,7 +204,8 @@ namespace Wyvern.Application.Services
                 new Claim(ClaimTypes.Name, user.Nome),
                 new Claim(ClaimTypes.Email, user.Email),
                 new Claim("role", user.Papel ?? "Jogador"),
-                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")) // cada emissão é um token distinto
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")), // cada emissão é um token distinto
+                new Claim(SidClaim, sessaoId.ToString())
             };
 
             // Único privilégio global: editar os catálogos compartilhados (itens, magias, perícias).
