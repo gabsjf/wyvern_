@@ -12,6 +12,7 @@ namespace Wyvern.Infrastructure.Data
         {
         }
         public DbSet<Usuario> Usuarios { get; set; }
+        public DbSet<RefreshToken> RefreshTokens { get; set; }
         public DbSet<Sessao> Sessoes { get; set; }
         public DbSet<Anotacao> Anotacoes { get; set; }
         public DbSet<PastaAnotacao> PastasAnotacao { get; set; }
@@ -244,6 +245,12 @@ namespace Wyvern.Infrastructure.Data
             modelBuilder.Entity<Usuario>()
                 .HasIndex(u => u.Email)
                 .IsUnique();
+
+            modelBuilder.Entity<RefreshToken>().HasIndex(t => t.TokenHash).IsUnique();
+            modelBuilder.Entity<RefreshToken>().HasIndex(t => t.FamiliaId);
+            modelBuilder.Entity<RefreshToken>().HasIndex(t => t.UsuarioId);
+            modelBuilder.Entity<RefreshToken>()
+                .HasOne(t => t.Usuario).WithMany().HasForeignKey(t => t.UsuarioId).OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Campanha>()
                 .HasIndex(c => c.TokenConvite)

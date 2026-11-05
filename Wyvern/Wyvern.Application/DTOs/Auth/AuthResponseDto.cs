@@ -10,6 +10,12 @@ namespace Wyvern.Application.DTOs.Auth
         /// <summary>Só vai no corpo para o app nativo; na web o token fica num cookie HttpOnly e nunca chega ao JavaScript.</summary>
         [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
         public string? Token { get; set; }
+        /// <summary>Só vai no corpo para o app nativo; na web fica num cookie HttpOnly (Path=/Auth).</summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public string? RefreshToken { get; set; }
+        /// <summary>Validade do refresh token; só serve para a API gravar o cookie e nunca é serializada.</summary>
+        [JsonIgnore]
+        public DateTime RefreshExpiraEm { get; set; }
         public string Papel { get; set; }
     }
 }

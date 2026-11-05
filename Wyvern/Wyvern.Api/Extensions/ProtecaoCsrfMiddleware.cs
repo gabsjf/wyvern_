@@ -38,7 +38,7 @@ namespace Wyvern.Api.Extensions
             }
             else if (!MetodosSeguros.Contains(request.Method, StringComparer.OrdinalIgnoreCase)
                      && !request.Headers.ContainsKey("Authorization")
-                     && request.Cookies.ContainsKey(SessionCookie.Nome)
+                     && SessionCookie.TemCookie(request) // inclui o cookie de refresh: /Auth/refresh e /Auth/logout também mudam estado
                      && request.Headers[SessionCookie.CabecalhoCsrf] != SessionCookie.ValorCsrf)
             {
                 context.Response.StatusCode = StatusCodes.Status403Forbidden;

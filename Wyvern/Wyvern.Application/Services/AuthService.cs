@@ -1,6 +1,7 @@
 using System;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
@@ -16,6 +17,7 @@ namespace Wyvern.Application.Services
     public class AuthService : IAuthService
     {
         private static readonly string[] PapeisPermitidos = { "Mestre", "Jogador" };
+        private static readonly TimeSpan ToleranciaReuso = TimeSpan.FromSeconds(10);
 
         private readonly IUnitOfWork _uof;
         private readonly JwtSettings _jwt;
@@ -49,7 +51,7 @@ namespace Wyvern.Application.Services
             await _uof.UsuarioRepository.CreateUsuarioAsync(user);
             await _uof.CommitAsync();
 
-            return CriarResposta(user);
+            return await CriarRespostaAsync(user, Guid.NewGuid());
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
@@ -58,8 +60,59 @@ namespace Wyvern.Application.Services
             if (user == null || !user.Ativo || !BCrypt.Net.BCrypt.Verify(dto.Senha, user.SenhaHash))
                 throw new RegraNegocioException("Email ou senha inválidos.");
 
-            return CriarResposta(user);
+            return await CriarRespostaAsync(user, Guid.NewGuid());
         }
+
+        /// <summary>
+        /// Troca o refresh token por um access token novo e um refresh novo da mesma família (rotação). Um token já trocado
+        /// que volta depois da tolerância é reuso, sinal de roubo: a família inteira é revogada.
+        /// </summary>
+        public async Task<AuthResponseDto> RefreshAsync(string? refreshToken)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken))
+                throw SessaoExpirada();
+
+            var agora = DateTime.UtcNow;
+            var atual = await _uof.RefreshTokenRepository.GetByHashAsync(HashDoToken(refreshToken));
+            if (atual == null || atual.RevogadoEm != null || atual.ExpiraEm <= agora)
+                throw SessaoExpirada();
+
+            // Sem o UPDATE atômico, duas trocas simultâneas do mesmo token bifurcariam a família.
+            var trocouAgora = atual.UsadoEm == null && await _uof.RefreshTokenRepository.MarcarComoUsadoAsync(atual.RefreshTokenId, agora);
+            if (!trocouAgora)
+            {
+                // Dentro da tolerância é quase certo uma corrida legítima (duas abas, rede ruim): só nega, sem derrubar a sessão.
+                var usadoEm = atual.UsadoEm ?? agora;
+                if (agora - usadoEm > ToleranciaReuso)
+                    await _uof.RefreshTokenRepository.RevogarFamiliaAsync(atual.FamiliaId, agora);
+                throw SessaoExpirada();
+            }
+
+            var user = await _uof.UsuarioRepository.GetUsuarioAsync(atual.UsuarioId);
+            if (user == null || !user.Ativo)
+            {
+                await _uof.RefreshTokenRepository.RevogarFamiliaAsync(atual.FamiliaId, agora);
+                throw SessaoExpirada();
+            }
+
+            await _uof.RefreshTokenRepository.ApagarExpiradosAsync(user.UsuarioId, agora);
+            return await CriarRespostaAsync(user, atual.FamiliaId);
+        }
+
+        /// <summary>Logout: revoga a família do refresh token apresentado (se for válido), para ele não servir mais.</summary>
+        public async Task EncerrarSessaoAsync(string? refreshToken)
+        {
+            if (string.IsNullOrWhiteSpace(refreshToken)) return;
+
+            var atual = await _uof.RefreshTokenRepository.GetByHashAsync(HashDoToken(refreshToken));
+            if (atual != null)
+                await _uof.RefreshTokenRepository.RevogarFamiliaAsync(atual.FamiliaId, DateTime.UtcNow);
+        }
+
+        private static RegraNegocioException SessaoExpirada() => new("Sessão expirada. Entre novamente.");
+
+        private static string HashDoToken(string token) =>
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
         // O papel global é só uma preferência de interface; qualquer valor fora da lista vira "Jogador".
         private static string NormalizarPapel(string? papel)
@@ -100,15 +153,32 @@ namespace Wyvern.Application.Services
             if (!string.IsNullOrEmpty(valor)) claims.Add(new Claim(tipoNoToken, valor));
         }
 
-        private AuthResponseDto CriarResposta(Usuario user)
+        private async Task<AuthResponseDto> CriarRespostaAsync(Usuario user, Guid familiaId)
         {
+            var agora = DateTime.UtcNow;
+            var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
+                .Replace('+', '-').Replace('/', '_').TrimEnd('=');
+            var expiraEm = agora.AddDays(_jwt.RefreshDays);
+
+            _uof.RefreshTokenRepository.Add(new RefreshToken
+            {
+                UsuarioId = user.UsuarioId,
+                FamiliaId = familiaId,
+                TokenHash = HashDoToken(refreshToken),
+                CriadoEm = agora,
+                ExpiraEm = expiraEm
+            });
+            await _uof.CommitAsync();
+
             return new AuthResponseDto
             {
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
                 Papel = user.Papel,
-                Token = GenerateJwtToken(user)
+                Token = GenerateJwtToken(user),
+                RefreshToken = refreshToken,
+                RefreshExpiraEm = expiraEm
             };
         }
 
@@ -121,7 +191,8 @@ namespace Wyvern.Application.Services
                 new Claim(ClaimTypes.NameIdentifier, user.UsuarioId.ToString()),
                 new Claim(ClaimTypes.Name, user.Nome),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim("role", user.Papel ?? "Jogador")
+                new Claim("role", user.Papel ?? "Jogador"),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")) // cada emissão é um token distinto
             };
 
             // Único privilégio global: editar os catálogos compartilhados (itens, magias, perícias).

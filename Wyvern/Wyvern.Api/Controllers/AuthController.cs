@@ -77,20 +77,50 @@ namespace Wyvern.Api.Controllers
         [DisableRateLimiting]
         public IActionResult TicketHub() => Ok(new { ticket = _authService.GerarTicketHub(User) });
 
+        /// <summary>
+        /// Troca o refresh token (cookie na web, corpo no app nativo) por um access token novo e um refresh novo.
+        /// Token inválido, vencido ou reusado: 401 e os cookies são apagados.
+        /// </summary>
+        // O refresh token tem 256 bits aleatórios, então não há o que forçar por tentativa; e um 429 aqui deslogaria o usuário.
+        [HttpPost("refresh")]
+        [DisableRateLimiting]
+        public async Task<IActionResult> Refresh([FromBody] RefreshDto? dto)
+        {
+            try
+            {
+                return IniciarSessao(await _authService.RefreshAsync(TokenDeRefresh(dto)));
+            }
+            catch (RegraNegocioException ex)
+            {
+                SessionCookie.Apagar(HttpContext);
+                SessionCookie.ApagarRefresh(HttpContext);
+                return Unauthorized(new { message = ex.Message });
+            }
+        }
+
         [HttpPost("logout")]
         [DisableRateLimiting]
-        public IActionResult Logout()
+        public async Task<IActionResult> Logout([FromBody] RefreshDto? dto)
         {
+            await _authService.EncerrarSessaoAsync(TokenDeRefresh(dto));
             SessionCookie.Apagar(HttpContext);
+            SessionCookie.ApagarRefresh(HttpContext);
             return NoContent();
         }
 
-        // O token sempre vai para o cookie; só o app nativo o recebe também no corpo.
+        private string? TokenDeRefresh(RefreshDto? dto) =>
+            SessionCookie.ClienteNativo(Request) ? dto?.RefreshToken : Request.Cookies[SessionCookie.NomeRefresh];
+
+        // Os tokens sempre vão para cookies; só o app nativo os recebe também no corpo.
         private IActionResult IniciarSessao(AuthResponseDto response)
         {
             SessionCookie.Gravar(HttpContext, response.Token!);
+            SessionCookie.GravarRefresh(HttpContext, response.RefreshToken!, response.RefreshExpiraEm);
             if (!SessionCookie.ClienteNativo(Request))
+            {
                 response.Token = null;
+                response.RefreshToken = null;
+            }
             return Ok(response);
         }
     }

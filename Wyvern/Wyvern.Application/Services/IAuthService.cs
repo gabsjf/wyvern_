@@ -9,6 +9,10 @@ namespace Wyvern.Application.Services
         Task<AuthResponseDto> RegisterAsync(RegisterDto dto);
         Task<AuthResponseDto> LoginAsync(LoginDto dto);
 
+        /// <summary>Rotação: devolve access + refresh novos; reuso de um refresh já trocado revoga a família.</summary>
+        Task<AuthResponseDto> RefreshAsync(string? refreshToken);
+        Task EncerrarSessaoAsync(string? refreshToken);
+
         /// <summary>Token curto, só para abrir a conexão de um hub; não serve na API REST.</summary>
         string GerarTicketHub(ClaimsPrincipal usuario);
     }
