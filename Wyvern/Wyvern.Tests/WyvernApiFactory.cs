@@ -41,10 +41,18 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
 
     public record Sessao(int UsuarioId, string Papel, string Token);
 
-    /// <summary>Cadastra um usuário novo e devolve um HttpClient já autenticado com o token dele.</summary>
+    /// <summary>
+    /// Cliente como o navegador: guarda o cookie de sessão sozinho e não manda o cabeçalho de cliente nativo,
+    /// então o token nunca aparece no corpo das respostas.
+    /// </summary>
+    public HttpClient NovoClienteWeb() =>
+        CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
+
+    /// <summary>Cadastra um usuário novo e devolve um HttpClient já autenticado com o token dele (como o app nativo, que recebe o token no corpo).</summary>
     public async Task<(HttpClient client, Sessao sessao)> NovoUsuarioAsync(string? papel = "Mestre")
     {
         var client = CreateClient();
+        client.DefaultRequestHeaders.Add("X-Wyvern-Client", "native");
         var email = $"{Guid.NewGuid():N}@teste.com";
         var resposta = await client.PostAsJsonAsync("/Auth/register", new { nome = "Teste", email, senha = "senha123", papel });
         resposta.EnsureSuccessStatusCode();

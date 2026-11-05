@@ -70,14 +70,20 @@ builder.Services.AddAuthentication(x =>
         RoleClaimType = "role"
     };
 
-    // WebSockets não enviam o header Authorization: o cliente SignalR manda o token em ?access_token=.
+    // Ordem de onde o token vem: cabeçalho Authorization (app nativo, testes), ?access_token= nos hubs (o WebSocket
+    // do app nativo não manda cabeçalho) e, na web, o cookie HttpOnly.
     x.Events = new JwtBearerEvents
     {
         OnMessageReceived = context =>
         {
+            if (context.Request.Headers.ContainsKey("Authorization"))
+                return Task.CompletedTask;
+
             var accessToken = context.Request.Query["access_token"];
             if (!string.IsNullOrEmpty(accessToken) && IsHubPath(context.HttpContext.Request.Path))
                 context.Token = accessToken;
+            else if (context.Request.Cookies.TryGetValue(SessionCookie.Nome, out var cookie) && !string.IsNullOrEmpty(cookie))
+                context.Token = cookie;
 
             return Task.CompletedTask;
         }
@@ -168,6 +174,7 @@ app.ConfigureExceptionHandler(incluirDetalhes: app.Environment.IsDevelopment());
 
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
+app.UseMiddleware<ProtecaoCsrfMiddleware>();
 
 app.UseAuthentication();
 app.UseRateLimiter(); // depois da autenticação: a política "upload" particiona por usuário
