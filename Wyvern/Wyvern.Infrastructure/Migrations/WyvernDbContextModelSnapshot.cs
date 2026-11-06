@@ -1600,6 +1600,9 @@ namespace Wyvern.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("EmailConfirmadoEm")
+                        .HasColumnType("timestamp without time zone");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1610,6 +1613,18 @@ namespace Wyvern.Infrastructure.Migrations
 
                     b.Property<string>("SenhaHash")
                         .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("TokenConfirmacaoExpiraEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenConfirmacaoHash")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("TokenRedefinicaoExpiraEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenRedefinicaoHash")
                         .HasColumnType("text");
 
                     b.HasKey("UsuarioId");

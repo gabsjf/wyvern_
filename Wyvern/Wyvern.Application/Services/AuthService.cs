@@ -23,37 +23,150 @@ namespace Wyvern.Application.Services
         private readonly JwtSettings _jwt;
         private readonly string[] _admins;
         private readonly ISessaoValidator _sessoes;
+        private readonly IEmailSender _email;
+        private readonly string _urlFront;
 
-        public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes)
+        public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes, IEmailSender email)
         {
             _uof = uof;
             _sessoes = sessoes;
+            _email = email;
+            _urlFront = (configuration["Email:UrlFront"] ?? throw new InvalidOperationException("Configure Email:UrlFront (variável Email__UrlFront)."))
+                .TrimEnd('/');
             _jwt = JwtSettings.FromConfiguration(configuration);
             _admins = configuration.GetSection("Admin:Emails").Get<string[]>() ?? Array.Empty<string>();
         }
 
-        public async Task<AuthResponseDto> RegisterAsync(RegisterDto dto)
+        public async Task RegisterAsync(RegisterDto dto)
         {
             var email = dto.Email.Trim();
 
-            var existingUser = await _uof.UsuarioRepository.GetByEmailAsync(email);
-            if (existingUser != null)
-                throw new RegraNegocioException("Email já está em uso.");
+            // O hash é calculado sempre, antes de consultar o e-mail: o tempo da resposta não revela se a conta existe.
+            var senhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha);
 
-            var user = new Usuario
+            var existente = await _uof.UsuarioRepository.GetByEmailAsync(email);
+            if (existente == null)
             {
-                Nome = dto.Nome.Trim(),
-                Email = email,
-                SenhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha),
-                Papel = NormalizarPapel(dto.Papel),
-                CriadoEm = DateTime.Now,
-                Ativo = true
-            };
+                var user = new Usuario
+                {
+                    Nome = dto.Nome.Trim(),
+                    Email = email,
+                    SenhaHash = senhaHash,
+                    Papel = NormalizarPapel(dto.Papel),
+                    CriadoEm = DateTime.Now,
+                    Ativo = true
+                };
+                await _uof.UsuarioRepository.CreateUsuarioAsync(user);
+                await _uof.CommitAsync(); // o token leva o id do usuário, que só existe depois daqui
+                await EnviarConfirmacaoAsync(user);
+            }
+            else if (existente.EmailConfirmadoEm == null)
+            {
+                // Quem cadastrou primeiro não confirmou: manda outro link, mas sem trocar nome nem senha. Se aceitasse os
+                // dados novos, quem digitasse o e-mail alheio escolheria a senha da conta que o dono vai confirmar.
+                await EnviarConfirmacaoAsync(existente);
+            }
+            else
+            {
+                await _email.EnviarAsync(existente.Email, "Alguém tentou criar uma conta com o seu e-mail - Wyvern",
+                    $"Olá, {existente.Nome}.\n\n" +
+                    "Alguém tentou criar uma conta no Wyvern com este e-mail, mas ele já tem uma conta. " +
+                    $"Se foi você, é só entrar com a sua senha: {_urlFront}/login\n\n" +
+                    "Se não reconhece, ignore esta mensagem: nada foi alterado na sua conta.");
+            }
+        }
 
-            await _uof.UsuarioRepository.CreateUsuarioAsync(user);
+        public async Task ConfirmarEmailAsync(string token)
+        {
+            var invalido = new RegraNegocioException("Link de confirmação inválido ou expirado.");
+
+            var user = await UsuarioDoTokenAsync(token);
+            if (user == null || !TokenConfere(token, user.TokenConfirmacaoHash, user.TokenConfirmacaoExpiraEm))
+                throw invalido;
+
+            user.EmailConfirmadoEm = DateTime.UtcNow;
+            user.TokenConfirmacaoHash = null;
+            user.TokenConfirmacaoExpiraEm = null;
+            await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
+            await _uof.CommitAsync();
+        }
+
+        /// <summary>
+        /// Esqueci a senha. Não revela se o e-mail tem conta: quem tem recebe o link (válido por 1 h, uso único); conta ainda
+        /// não confirmada recebe o link de confirmação, e e-mail sem conta não recebe nada.
+        /// </summary>
+        public async Task SolicitarRedefinicaoDeSenhaAsync(string email)
+        {
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(email.Trim());
+            if (user == null) return;
+
+            if (user.EmailConfirmadoEm == null)
+            {
+                await EnviarConfirmacaoAsync(user);
+                return;
+            }
+
+            var token = NovoToken(user.UsuarioId);
+            user.TokenRedefinicaoHash = HashDoToken(token);
+            user.TokenRedefinicaoExpiraEm = DateTime.UtcNow.AddHours(1);
+            await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
-            return await CriarRespostaAsync(user, Guid.NewGuid());
+            await _email.EnviarAsync(user.Email, "Redefinição de senha - Wyvern",
+                $"Olá, {user.Nome}.\n\n" +
+                "Recebemos um pedido para redefinir a senha da sua conta no Wyvern. Abra o link abaixo (vale por 1 hora e só funciona uma vez):\n" +
+                $"{_urlFront}/redefinir-senha?token={Uri.EscapeDataString(token)}\n\n" +
+                "Se não foi você, ignore esta mensagem: a sua senha continua a mesma.");
+        }
+
+        /// <summary>Troca a senha com o token do e-mail e derruba todas as sessões abertas da conta.</summary>
+        public async Task RedefinirSenhaAsync(string token, string novaSenha)
+        {
+            var user = await UsuarioDoTokenAsync(token);
+            if (user == null || !TokenConfere(token, user.TokenRedefinicaoHash, user.TokenRedefinicaoExpiraEm))
+                throw new RegraNegocioException("Link de redefinição inválido ou expirado.");
+
+            user.SenhaHash = BCrypt.Net.BCrypt.HashPassword(novaSenha);
+            user.TokenRedefinicaoHash = null;
+            user.TokenRedefinicaoExpiraEm = null;
+            await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
+            await _uof.CommitAsync();
+
+            // Quem roubou a senha antiga pode estar logado: encerra tudo, inclusive os access tokens em cache.
+            foreach (var familiaId in await _uof.RefreshTokenRepository.RevogarTodasAsync(user.UsuarioId, DateTime.UtcNow))
+                _sessoes.Invalidar(familiaId);
+        }
+
+        // Tokens têm a forma "id.aleatório"; só o hash fica no banco. Pedir outro link invalida o anterior.
+        private static string NovoToken(int usuarioId) =>
+            $"{usuarioId}." + Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)).Replace('+', '-').Replace('/', '_').TrimEnd('=');
+
+        private async Task<Usuario?> UsuarioDoTokenAsync(string token)
+        {
+            var ponto = token.IndexOf('.');
+            if (ponto <= 0 || !int.TryParse(token.AsSpan(0, ponto), out var usuarioId))
+                return null;
+            return await _uof.UsuarioRepository.GetUsuarioAsync(usuarioId);
+        }
+
+        private static bool TokenConfere(string token, string? hashSalvo, DateTime? expiraEm) =>
+            hashSalvo != null && expiraEm != null && expiraEm > DateTime.UtcNow
+            && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(hashSalvo), Encoding.ASCII.GetBytes(HashDoToken(token)));
+
+        // Link de confirmação, válido por 24 h.
+        private async Task EnviarConfirmacaoAsync(Usuario user)
+        {
+            var token = NovoToken(user.UsuarioId);
+            user.TokenConfirmacaoHash = HashDoToken(token);
+            user.TokenConfirmacaoExpiraEm = DateTime.UtcNow.AddHours(24);
+            await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
+            await _uof.CommitAsync();
+
+            await _email.EnviarAsync(user.Email, "Confirme o seu e-mail - Wyvern",
+                $"Olá, {user.Nome}.\n\n" +
+                "Para ativar a sua conta no Wyvern, abra o link abaixo (vale por 24 horas):\n" +
+                $"{_urlFront}/confirmar-email?token={Uri.EscapeDataString(token)}\n\n" +
+                "Se você não criou uma conta, ignore esta mensagem.");
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
@@ -61,6 +174,9 @@ namespace Wyvern.Application.Services
             var user = await _uof.UsuarioRepository.GetByEmailAsync(dto.Email.Trim());
             if (user == null || !user.Ativo || !BCrypt.Net.BCrypt.Verify(dto.Senha, user.SenhaHash))
                 throw new RegraNegocioException("Email ou senha inválidos.");
+            // Só depois de a senha conferir: quem não tem a senha não descobre nada sobre a conta.
+            if (user.EmailConfirmadoEm == null)
+                throw new RegraNegocioException("Confirme o seu e-mail para entrar. Enviamos um link para a sua caixa de entrada.");
 
             return await CriarRespostaAsync(user, Guid.NewGuid());
         }

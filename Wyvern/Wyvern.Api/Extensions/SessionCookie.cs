@@ -47,12 +47,17 @@ namespace Wyvern.Api.Extensions
         public static bool ClienteNativo(HttpRequest request) =>
             string.Equals(request.Headers[CabecalhoCliente], "native", StringComparison.OrdinalIgnoreCase);
 
-        // Secure só com HTTPS (atrás do proxy, o UseForwardedHeaders já faz IsHttps valer); em desenvolvimento local é HTTP.
+        /// <summary>
+        /// Fora do desenvolvimento o cookie é sempre Secure, mesmo que o proxy não repasse o HTTPS (X-Forwarded-Proto): um proxy
+        /// mal configurado não pode virar cookie de sessão trafegando em HTTP. Só o localhost de desenvolvimento, que é HTTP, fica sem.
+        /// </summary>
+        public static bool ExigeSecure(bool requisicaoHttps, bool desenvolvimento) => requisicaoHttps || !desenvolvimento;
+
         // Lax basta porque o front (wyvern.sbs) e a API (api.wyvern.sbs) são o mesmo site.
         private static CookieOptions Opcoes(HttpContext context, DateTimeOffset? expira) => new()
         {
             HttpOnly = true,
-            Secure = context.Request.IsHttps,
+            Secure = ExigeSecure(context.Request.IsHttps, context.RequestServices.GetRequiredService<IHostEnvironment>().IsDevelopment()),
             SameSite = SameSiteMode.Lax,
             Path = "/",
             Expires = expira,

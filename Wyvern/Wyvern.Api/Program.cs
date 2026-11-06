@@ -37,6 +37,7 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ISessaoValidator, SessaoValidator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddEnvioDeEmail(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();
 builder.Services.AddScoped<ICampanhaService, CampanhaService>();
 builder.Services.AddSingleton(TimeProvider.System);
@@ -138,7 +139,14 @@ builder.Services.Configure<ForwardedHeadersOptions>(options =>
     options.KnownProxies.Clear();
 });
 
-var authPermitLimit = builder.Configuration.GetValue("RateLimit:AuthPermitLimit", 10);
+// HSTS só vale em produção (o middleware ignora localhost). O padrão é um ano; sem preload, que é difícil de desfazer.
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(builder.Configuration.GetValue("SecurityHeaders:Hsts:MaxAgeDays", 365));
+    options.IncludeSubDomains = true;
+});
+
+var authPermitLimit =builder.Configuration.GetValue("RateLimit:AuthPermitLimit", 10);
 
 builder.Services.AddRateLimiter(options =>
 {
@@ -156,15 +164,20 @@ builder.Services.AddRateLimiter(options =>
 });
 
 // Origens permitidas vêm da configuração (Cors:AllowedOrigins); sem entradas, nenhuma origem externa é aceita.
-var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+// Com cookies a lista é exata (nada de "*"): entrada inválida derruba a inicialização (ver CorsConfiguracao).
+var allowedOrigins = CorsConfiguracao.LerOrigens(builder.Configuration);
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("Frontend", policy =>
     {
         policy.WithOrigins(allowedOrigins)
-              .AllowAnyMethod()
+              .WithMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
+              // Os cabeçalhos que o front manda (X-Requested-With, X-Wyvern-Client, Authorization e os do SignalR) formam uma
+              // lista que muda com o cliente; o que protege é a origem exata e o X-Requested-With, conferido no servidor.
               .AllowAnyHeader()
-              .AllowCredentials(); // SignalR needs this
+              .AllowCredentials() // cookie de sessão e SignalR
+              // O X-Requested-With obriga um preflight em toda mutação; o navegador guarda a resposta por este tempo.
+              .SetPreflightMaxAge(TimeSpan.FromMinutes(10));
     });
 });
 
@@ -201,8 +214,11 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseForwardedHeaders();
+app.UseCabecalhosDeSeguranca();
 app.ConfigureExceptionHandler(incluirDetalhes: app.Environment.IsDevelopment());
 
+if (!app.Environment.IsDevelopment())
+    app.UseHsts();
 app.UseHttpsRedirection();
 app.UseCors("Frontend");
 app.UseMiddleware<ProtecaoCsrfMiddleware>();
