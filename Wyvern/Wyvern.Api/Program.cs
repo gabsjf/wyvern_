@@ -36,6 +36,7 @@ builder.Services.AddScoped<IPdfExportService, PdfExportService>();
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ISessaoValidator, SessaoValidator>();
+builder.Services.AddSingleton<ILimitadorDeLogin, LimitadorDeLogin>(); // estado em memória, compartilhado entre requisições
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddEnvioDeEmail(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();
