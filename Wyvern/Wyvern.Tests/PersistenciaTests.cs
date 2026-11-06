@@ -62,10 +62,14 @@ public class PersistenciaTests : IClassFixture<WyvernApiFactory>
     [Fact]
     public async Task Email_nao_pode_ser_cadastrado_duas_vezes()
     {
-        var client = _factory.NovoClienteWeb(); // sem cookie: a segunda chamada seria barrada pela proteção anti-CSRF por vir sem o cabeçalho
-        var corpo = new { nome = "A", email = $"{Guid.NewGuid():N}@teste.com", senha = "senha123", papel = "Jogador" };
+        var client = _factory.NovoClienteWeb();
+        var email = $"{Guid.NewGuid():N}@teste.com";
+        Assert.Equal(HttpStatusCode.OK, (await _factory.CadastrarEEntrarAsync(client, email)).StatusCode);
 
-        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/Auth/register", corpo)).StatusCode);
-        Assert.Equal(HttpStatusCode.BadRequest, (await client.PostAsJsonAsync("/Auth/register", corpo)).StatusCode);
+        // Cadastrar de novo não cria outra conta: a senha nova não serve e a antiga continua valendo.
+        await client.PostAsJsonAsync("/Auth/register", new { nome = "Outro", email, senha = "outra-senha", papel = "Jogador" });
+
+        Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/Auth/login", new { email, senha = "outra-senha" })).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/Auth/login", new { email, senha = "senha123" })).StatusCode);
     }
 }

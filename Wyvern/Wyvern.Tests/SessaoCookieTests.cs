@@ -12,8 +12,8 @@ public class SessaoCookieTests : IClassFixture<WyvernApiFactory>
 
     public SessaoCookieTests(WyvernApiFactory factory) => _factory = factory;
 
-    private static async Task<HttpResponseMessage> CadastrarAsync(HttpClient client) =>
-        await client.PostAsJsonAsync("/Auth/register", new { nome = "Web", email = $"{Guid.NewGuid():N}@teste.com", senha = "senha123" });
+    private Task<HttpResponseMessage> CadastrarAsync(HttpClient client) =>
+        _factory.CadastrarEEntrarAsync(client, $"{Guid.NewGuid():N}@teste.com", "Web");
 
     private static string SetCookie(HttpResponseMessage resposta) =>
         resposta.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith("wyvern_at=", StringComparison.Ordinal));
@@ -67,9 +67,9 @@ public class SessaoCookieTests : IClassFixture<WyvernApiFactory>
     [Fact]
     public async Task Me_nao_entra_no_limite_de_tentativas_de_login()
     {
-        using var fabrica = new WyvernApiFactory { AuthPermitLimit = 2 };
+        using var fabrica = new WyvernApiFactory { AuthPermitLimit = 3 }; // cadastro, confirmação e login gastam as 3
         var web = fabrica.NovoClienteWeb();
-        var cadastro = await CadastrarAsync(web);
+        var cadastro = await fabrica.CadastrarEEntrarAsync(web, $"{Guid.NewGuid():N}@teste.com", "Web");
         var cookie = ParCookie(cadastro);
 
         for (var i = 0; i < 6; i++)

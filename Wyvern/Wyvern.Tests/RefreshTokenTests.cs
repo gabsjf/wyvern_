@@ -29,8 +29,7 @@ public class RefreshTokenTests : IClassFixture<WyvernApiFactory>
 
     private async Task<Tokens> CadastrarNativoAsync()
     {
-        var resposta = await NovoClienteNativo().PostAsJsonAsync("/Auth/register",
-            new { nome = "Refresh", email = $"{Guid.NewGuid():N}@teste.com", senha = "senha123" });
+        var resposta = await _factory.CadastrarEEntrarAsync(NovoClienteNativo(), $"{Guid.NewGuid():N}@teste.com", "Refresh");
         resposta.EnsureSuccessStatusCode();
         return (await resposta.Content.ReadFromJsonAsync<Tokens>(new JsonSerializerOptions(JsonSerializerDefaults.Web)))!;
     }
@@ -61,8 +60,7 @@ public class RefreshTokenTests : IClassFixture<WyvernApiFactory>
     [Fact]
     public async Task Login_na_web_grava_refresh_em_cookie_HttpOnly_restrito_a_Auth_e_nao_o_devolve_no_corpo()
     {
-        var resposta = await _factory.NovoClienteWeb().PostAsJsonAsync("/Auth/register",
-            new { nome = "Web", email = $"{Guid.NewGuid():N}@teste.com", senha = "senha123" });
+        var resposta = await _factory.CadastrarEEntrarAsync(_factory.NovoClienteWeb(), $"{Guid.NewGuid():N}@teste.com", "Web");
 
         resposta.EnsureSuccessStatusCode();
         var cookie = resposta.Headers.GetValues("Set-Cookie").Single(c => c.StartsWith("wyvern_rt=", StringComparison.Ordinal));
@@ -176,8 +174,7 @@ public class RefreshTokenTests : IClassFixture<WyvernApiFactory>
     public async Task Na_web_o_refresh_usa_so_o_cookie_e_exige_o_cabecalho_anti_CSRF()
     {
         var web = _factory.NovoClienteWeb();
-        var cadastro = await web.PostAsJsonAsync("/Auth/register",
-            new { nome = "Web", email = $"{Guid.NewGuid():N}@teste.com", senha = "senha123" });
+        var cadastro = await _factory.CadastrarEEntrarAsync(web, $"{Guid.NewGuid():N}@teste.com", "Web");
         var cookieRefresh = ParCookie(cadastro, "wyvern_rt");
 
         // o access cookie já venceu (só o refresh sobrou) e a requisição não traz o cabeçalho anti-CSRF

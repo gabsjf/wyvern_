@@ -2,7 +2,11 @@ using System.Net.Http.Headers;
 using System.Net.Http.Json;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using System.Collections.Concurrent;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Wyvern.Application.Services;
 
 namespace Wyvern.Tests;
 
@@ -31,6 +35,49 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
         }
         builder.UseSetting("Jwt:Key", "chave-de-teste-com-mais-de-trinta-e-dois-caracteres");
         builder.UseSetting("RateLimit:AuthPermitLimit", AuthPermitLimit.ToString());
+        builder.ConfigureServices(services => services.AddSingleton<IEmailSender>(Emails));
+    }
+
+    /// <summary>Os e-mails que a API "enviou" durante os testes.</summary>
+    public EmailSenderFalso Emails { get; } = new();
+
+    public record EmailEnviado(string Para, string Assunto, string Corpo);
+
+    public class EmailSenderFalso : IEmailSender
+    {
+        public ConcurrentQueue<EmailEnviado> Enviados { get; } = new();
+
+        public Task EnviarAsync(string para, string assunto, string corpo)
+        {
+            Enviados.Enqueue(new EmailEnviado(para, assunto, corpo));
+            return Task.CompletedTask;
+        }
+
+        public IEnumerable<EmailEnviado> Para(string email) => Enviados.Where(e => e.Para == email);
+    }
+
+    /// <summary>Token do último link de confirmação enviado a este e-mail.</summary>
+    public string TokenDeConfirmacao(string email)
+    {
+        var corpo = Emails.Para(email).Last(e => e.Assunto.StartsWith("Confirme")).Corpo;
+        return Uri.UnescapeDataString(Regex.Match(corpo, @"token=(\S+)").Groups[1].Value);
+    }
+
+    /// <summary>Token do último link de redefinição de senha enviado a este e-mail.</summary>
+    public string TokenDeRedefinicao(string email)
+    {
+        var corpo = Emails.Para(email).Last(e => e.Assunto.StartsWith("Redefinição")).Corpo;
+        return Uri.UnescapeDataString(Regex.Match(corpo, @"token=(\S+)").Groups[1].Value);
+    }
+
+    /// <summary>Cadastra, confirma o e-mail pelo link e entra: devolve a resposta do login (com a sessão), como o fluxo real.</summary>
+    public async Task<HttpResponseMessage> CadastrarEEntrarAsync(HttpClient client, string email, string nome = "Teste", string senha = "senha123", string? papel = null)
+    {
+        var cadastro = await client.PostAsJsonAsync("/Auth/register", new { nome, email, senha, papel });
+        cadastro.EnsureSuccessStatusCode();
+        var confirmacao = await client.PostAsJsonAsync("/Auth/confirmar-email", new { token = TokenDeConfirmacao(email) });
+        confirmacao.EnsureSuccessStatusCode();
+        return await client.PostAsJsonAsync("/Auth/login", new { email, senha });
     }
 
     protected override void Dispose(bool disposing)
@@ -54,7 +101,7 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
         var client = CreateClient();
         client.DefaultRequestHeaders.Add("X-Wyvern-Client", "native");
         var email = $"{Guid.NewGuid():N}@teste.com";
-        var resposta = await client.PostAsJsonAsync("/Auth/register", new { nome = "Teste", email, senha = "senha123", papel });
+        var resposta = await CadastrarEEntrarAsync(client, email, papel: papel);
         resposta.EnsureSuccessStatusCode();
 
         var corpo = (await resposta.Content.ReadFromJsonAsync<Sessao>())!;

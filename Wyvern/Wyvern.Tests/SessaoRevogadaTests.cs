@@ -35,8 +35,7 @@ public class SessaoRevogadaTests : IClassFixture<WyvernApiFactory>
 
     private async Task<Sessao> CadastrarAsync()
     {
-        var resposta = await ClienteNativo().PostAsJsonAsync("/Auth/register",
-            new { nome = "Sessao", email = $"{Guid.NewGuid():N}@teste.com", senha = "senha123" });
+        var resposta = await _factory.CadastrarEEntrarAsync(ClienteNativo(), $"{Guid.NewGuid():N}@teste.com", "Sessao");
         resposta.EnsureSuccessStatusCode();
         return (await resposta.Content.ReadFromJsonAsync<Sessao>(Web))!;
     }
@@ -74,7 +73,7 @@ public class SessaoRevogadaTests : IClassFixture<WyvernApiFactory>
     {
         var email = $"{Guid.NewGuid():N}@teste.com";
         var cliente = ClienteNativo();
-        var primeira = (await (await cliente.PostAsJsonAsync("/Auth/register", new { nome = "Dois", email, senha = "senha123" }))
+        var primeira = (await (await _factory.CadastrarEEntrarAsync(cliente, email, "Dois"))
             .Content.ReadFromJsonAsync<Sessao>(Web))!;
         var segunda = (await (await ClienteNativo().PostAsJsonAsync("/Auth/login", new { email, senha = "senha123" }))
             .Content.ReadFromJsonAsync<Sessao>(Web))!; // outro aparelho: outra família

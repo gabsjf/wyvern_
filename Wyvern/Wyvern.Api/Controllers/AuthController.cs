@@ -24,10 +24,40 @@ namespace Wyvern.Api.Controllers
         [HttpPost("register")]
         public async Task<IActionResult> Register([FromBody] RegisterDto dto)
         {
+            // Mesma resposta para e-mail novo e já cadastrado, e sem sessão: o resultado chega por e-mail ao dono.
+            await _authService.RegisterAsync(dto);
+            return Accepted(new { message = "Se o e-mail informado puder ser usado, enviamos um link de confirmação para ele. Verifique a sua caixa de entrada." });
+        }
+
+        [HttpPost("confirmar-email")]
+        public async Task<IActionResult> ConfirmarEmail([FromBody] ConfirmarEmailDto dto)
+        {
             try
             {
-                var response = await _authService.RegisterAsync(dto);
-                return IniciarSessao(response);
+                await _authService.ConfirmarEmailAsync(dto.Token);
+                return NoContent();
+            }
+            catch (RegraNegocioException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        [HttpPost("esqueci-senha")]
+        public async Task<IActionResult> EsqueciSenha([FromBody] EsqueciSenhaDto dto)
+        {
+            // Mesma resposta exista a conta ou não.
+            await _authService.SolicitarRedefinicaoDeSenhaAsync(dto.Email);
+            return Accepted(new { message = "Se existir uma conta com esse e-mail, enviamos um link para redefinir a senha. Verifique a sua caixa de entrada." });
+        }
+
+        [HttpPost("redefinir-senha")]
+        public async Task<IActionResult> RedefinirSenha([FromBody] RedefinirSenhaDto dto)
+        {
+            try
+            {
+                await _authService.RedefinirSenhaAsync(dto.Token, dto.NovaSenha);
+                return NoContent();
             }
             catch (RegraNegocioException ex)
             {

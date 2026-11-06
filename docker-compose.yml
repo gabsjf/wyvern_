@@ -29,6 +29,13 @@ services:
       - Jwt__Issuer=WyvernApi
       - Jwt__Audience=WyvernFront
       - Cors__AllowedOrigins__0=${FRONTEND_ORIGIN:?Defina FRONTEND_ORIGIN no arquivo .env}
+      # E-mail (confirmação de cadastro). Brevo: smtp-relay.brevo.com, porta 587.
+      - Email__UrlFront=${FRONTEND_ORIGIN}
+      - Email__Host=${EMAIL_HOST:?Defina EMAIL_HOST no arquivo .env}
+      - Email__Porta=${EMAIL_PORTA:-587}
+      - Email__Usuario=${EMAIL_USUARIO:?Defina EMAIL_USUARIO no arquivo .env}
+      - Email__Senha=${EMAIL_SENHA:?Defina EMAIL_SENHA no arquivo .env}
+      - Email__Remetente=${EMAIL_REMETENTE:?Defina EMAIL_REMETENTE no arquivo .env}
     # Sem "ports": quem fala com a API é o Caddy, pela rede interna.
     expose:
       - "8080"
