@@ -7,84 +7,125 @@ namespace Wyvern.Application.Services
     public record CorpoDeEmail(string Texto, string Html);
 
     /// <summary>
-    /// Modelos dos e-mails da conta. O HTML usa tabelas e estilos inline, que é o que os clientes de e-mail aceitam, e as
-    /// cores do site. Tudo que vem do usuário (nome) ou de URL passa por HtmlEncode antes de entrar no HTML.
+    /// Modelos dos e-mails da conta, no visual escuro do site (fundo #14110f, destaque vermelho #b23a48) e com a logo do
+    /// dragão. O HTML usa tabelas e estilos inline, que é o que os clientes de e-mail aceitam. A logo é um PNG hospedado
+    /// no front (<paramref name="urlLogo"/>). Tudo que vem do usuário (nome) ou de URL passa por HtmlEncode.
     /// </summary>
     public static class ModeloDeEmail
     {
-        public static CorpoDeEmail Confirmacao(string nome, string url) => Montar(
-            "Confirme o seu e-mail", nome,
-            new[] { "Falta pouco para entrar na guilda. Confirme o seu e-mail para ativar a sua conta no Wyvern." },
-            "Confirmar e-mail", url,
-            "O link vale por 24 horas. Se você não criou uma conta, ignore esta mensagem.");
+        public static CorpoDeEmail Confirmacao(string nome, string url, string urlLogo) => Montar(
+            preheader: "Falta só um clique para ativar a sua conta no Wyvern.",
+            eyebrow: "Bem-vindo à guilda",
+            titulo: "Confirme o seu e-mail",
+            nome: nome,
+            paragrafos: new[] { "Que bom ter você por aqui! Para ativar a sua conta e começar a sua primeira campanha, confirme o seu e-mail no botão abaixo." },
+            textoBotao: "Confirmar e-mail", url: url, urlLogo: urlLogo,
+            tituloNota: "Link válido por 24 horas",
+            nota: "Se você não criou uma conta no Wyvern, é só ignorar esta mensagem.");
 
-        public static CorpoDeEmail Redefinicao(string nome, string url) => Montar(
-            "Redefinir a sua senha", nome,
-            new[] { "Recebemos um pedido para redefinir a senha da sua conta no Wyvern. Clique no botão abaixo para escolher uma nova senha." },
-            "Redefinir senha", url,
-            "O link vale por 1 hora e só funciona uma vez. Se não foi você, ignore esta mensagem: a sua senha continua a mesma.");
+        public static CorpoDeEmail Redefinicao(string nome, string url, string urlLogo) => Montar(
+            preheader: "Crie uma nova senha para a sua conta no Wyvern.",
+            eyebrow: "Redefinição de senha",
+            titulo: "Esqueceu a senha?",
+            nome: nome,
+            paragrafos: new[] { "Sem problemas, acontece com os melhores aventureiros. Clique no botão abaixo para escolher uma nova senha para a sua conta." },
+            textoBotao: "Criar nova senha", url: url, urlLogo: urlLogo,
+            tituloNota: "Link de uso único, válido por 1 hora",
+            nota: "Se não foi você que pediu, ignore este e-mail: a sua senha continua a mesma e ninguém mexeu na sua conta.");
 
-        public static CorpoDeEmail ContaJaExiste(string nome, string urlLogin) => Montar(
-            "Alguém tentou usar o seu e-mail", nome,
-            new[]
+        public static CorpoDeEmail ContaJaExiste(string nome, string urlLogin, string urlLogo) => Montar(
+            preheader: "Alguém tentou criar uma conta com o seu e-mail.",
+            eyebrow: "Aviso de segurança",
+            titulo: "Alguém tentou usar o seu e-mail",
+            nome: nome,
+            paragrafos: new[]
             {
                 "Alguém tentou criar uma conta no Wyvern com este e-mail, mas ele já tem uma conta.",
                 "Se foi você, é só entrar com a sua senha. Esqueceu? Use \"Esqueci minha senha\" na tela de login."
             },
-            "Ir para o login", urlLogin,
-            "Se não reconhece essa tentativa, ignore esta mensagem: nada foi alterado na sua conta.");
+            textoBotao: "Ir para o login", url: urlLogin, urlLogo: urlLogo,
+            tituloNota: "Nada foi alterado",
+            nota: "Se você não reconhece essa tentativa, pode ignorar esta mensagem: a sua conta continua como estava.");
 
-        private static CorpoDeEmail Montar(string titulo, string nome, string[] paragrafos, string textoBotao, string url, string rodape)
+        private static CorpoDeEmail Montar(string preheader, string eyebrow, string titulo, string nome, string[] paragrafos,
+            string textoBotao, string url, string urlLogo, string tituloNota, string nota)
         {
             var texto = new StringBuilder()
+                .Append("WYVERN\n\n")
+                .Append(titulo.ToUpperInvariant()).Append("\n\n")
                 .Append("Olá, ").Append(nome).Append(".\n\n")
                 .Append(string.Join("\n\n", paragrafos)).Append("\n\n")
                 .Append(textoBotao).Append(":\n").Append(url).Append("\n\n")
-                .Append(rodape)
+                .Append(tituloNota).Append(". ").Append(nota)
                 .ToString();
 
-            var corpoHtml = new StringBuilder();
+            static string h(string s) => WebUtility.HtmlEncode(s);
+            var corpo = new StringBuilder();
             foreach (var p in paragrafos)
-                corpoHtml.Append($"<p style=\"margin:0 0 16px;font-size:16px;line-height:24px;color:#3a3531;\">{WebUtility.HtmlEncode(p)}</p>");
+                corpo.Append($"<p style=\"margin:0 0 16px;font-size:16px;line-height:26px;color:#d6cdc4;\">{h(p)}</p>");
 
-            var urlHtml = WebUtility.HtmlEncode(url);
-            var html = $@"<!doctype html>
-<html lang=""pt-BR"">
+            var html = $$"""
+<!doctype html>
+<html lang="pt-BR">
 <head>
-<meta charset=""utf-8"">
-<meta name=""viewport"" content=""width=device-width, initial-scale=1"">
-<title>{WebUtility.HtmlEncode(titulo)}</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<meta name="supported-color-schemes" content="dark">
+<title>{{h(titulo)}}</title>
+<style>
+  @media only screen and (max-width:600px) {
+    .cartao { padding: 28px 22px !important; }
+    .titulo { font-size: 28px !important; line-height: 32px !important; }
+    .botao a { display: block !important; padding: 16px 12px !important; }
+  }
+</style>
 </head>
-<body style=""margin:0;padding:0;background-color:#eeebe5;"">
-<table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""background-color:#eeebe5;"">
-<tr><td align=""center"" style=""padding:32px 16px;"">
-  <table role=""presentation"" width=""100%"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""max-width:560px;"">
-    <tr><td align=""center"" style=""background-color:#14110f;padding:28px 24px;border-radius:12px 12px 0 0;"">
-      <span style=""font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-size:30px;font-weight:700;letter-spacing:6px;color:#fff6f1;"">WYVERN</span>
-      <div style=""height:3px;width:48px;background-color:#b23a48;margin:14px auto 0;line-height:3px;font-size:0;"">&nbsp;</div>
+<body style="margin:0;padding:0;background-color:#0e0c0b;">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:transparent;font-size:1px;line-height:1px;">{{h(preheader)}}&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;&#8199;&#847;</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background-color:#0e0c0b;">
+<tr><td align="center" style="padding:36px 16px 40px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px;">
+
+    <tr><td align="center" style="padding:0 0 26px;">
+      <img src="{{h(urlLogo)}}" width="84" alt="Wyvern" style="display:block;width:84px;height:auto;border:0;margin:0 auto 12px;">
+      <span style="font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-size:22px;font-weight:700;letter-spacing:9px;color:#fff6f1;">WYVERN</span>
     </td></tr>
-    <tr><td style=""background-color:#ffffff;padding:36px 32px;border-radius:0 0 12px 12px;font-family:Barlow,'Segoe UI',Arial,sans-serif;"">
-      <h1 style=""margin:0 0 20px;font-size:24px;line-height:30px;color:#14110f;"">{WebUtility.HtmlEncode(titulo)}</h1>
-      <p style=""margin:0 0 16px;font-size:16px;line-height:24px;color:#3a3531;"">Olá, {WebUtility.HtmlEncode(nome)}.</p>
-      {corpoHtml}
-      <table role=""presentation"" cellpadding=""0"" cellspacing=""0"" border=""0"" style=""margin:28px 0;"">
-        <tr><td align=""center"" style=""background-color:#b23a48;border-radius:8px;"">
-          <a href=""{urlHtml}"" style=""display:inline-block;padding:14px 32px;font-size:16px;font-weight:600;color:#fff6f1;text-decoration:none;font-family:Barlow,'Segoe UI',Arial,sans-serif;"">{WebUtility.HtmlEncode(textoBotao)}</a>
+
+    <tr><td class="cartao" style="background-color:#1d1916;border:1px solid #2e2823;border-top:3px solid #b23a48;border-radius:14px;padding:40px 40px 36px;font-family:Barlow,'Segoe UI',Helvetica,Arial,sans-serif;">
+      <p style="margin:0 0 10px;font-size:12px;line-height:16px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:#e0584b;">{{h(eyebrow)}}</p>
+      <h1 class="titulo" style="margin:0 0 24px;font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;font-size:34px;line-height:38px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;color:#fff6f1;">{{h(titulo)}}</h1>
+      <p style="margin:0 0 16px;font-size:16px;line-height:26px;color:#fff6f1;">Olá, <strong>{{h(nome)}}</strong>.</p>
+      {{corpo}}
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:30px 0;">
+        <tr><td class="botao" align="center" style="background-color:#b23a48;border-radius:10px;">
+          <a href="{{h(url)}}" style="display:inline-block;padding:16px 44px;font-family:Barlow,'Segoe UI',Helvetica,Arial,sans-serif;font-size:17px;font-weight:700;letter-spacing:.5px;color:#fff6f1;text-decoration:none;">{{h(textoBotao)}}&nbsp;&rarr;</a>
         </td></tr>
       </table>
-      <p style=""margin:0 0 6px;font-size:13px;line-height:20px;color:#7a726b;"">Se o botão não funcionar, copie e cole este endereço no navegador:</p>
-      <p style=""margin:0 0 24px;font-size:13px;line-height:20px;word-break:break-all;""><a href=""{urlHtml}"" style=""color:#b23a48;"">{urlHtml}</a></p>
-      <hr style=""border:none;border-top:1px solid #e4dfd8;margin:0 0 20px;"">
-      <p style=""margin:0;font-size:13px;line-height:20px;color:#7a726b;"">{WebUtility.HtmlEncode(rodape)}</p>
+
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 26px;">
+        <tr><td style="background-color:#241f1b;border-left:3px solid #b23a48;border-radius:0 8px 8px 0;padding:14px 18px;">
+          <p style="margin:0 0 4px;font-size:13px;line-height:18px;font-weight:700;letter-spacing:.5px;color:#fff6f1;">{{h(tituloNota)}}</p>
+          <p style="margin:0;font-size:14px;line-height:22px;color:#b9afa5;">{{h(nota)}}</p>
+        </td></tr>
+      </table>
+
+      <p style="margin:0 0 6px;font-size:13px;line-height:20px;color:#8a8178;">O botão não funciona? Copie e cole este endereço no navegador:</p>
+      <p style="margin:0;font-size:13px;line-height:20px;word-break:break-all;"><a href="{{h(url)}}" style="color:#e0584b;text-decoration:none;">{{h(url)}}</a></p>
     </td></tr>
-    <tr><td align=""center"" style=""padding:20px 16px;font-family:Arial,sans-serif;font-size:12px;color:#7a726b;"">
-      Wyvern RPG &middot; Esta é uma mensagem automática, não responda.
+
+    <tr><td align="center" style="padding:26px 12px 0;font-family:Barlow,'Segoe UI',Helvetica,Arial,sans-serif;font-size:12px;line-height:19px;color:#7a726b;">
+      Wyvern RPG &middot; mensagem automática, não responda este e-mail.<br>
+      Você a recebeu porque este endereço foi usado no Wyvern.
     </td></tr>
+
   </table>
 </td></tr>
 </table>
 </body>
-</html>";
+</html>
+""";
 
             return new CorpoDeEmail(texto, html);
         }

@@ -26,6 +26,9 @@ namespace Wyvern.Application.Services
         private readonly IEmailSender _email;
         private readonly string _urlFront;
 
+        // PNG hospedado no front (public/assets/images); os e-mails não carregam imagem embutida.
+        private string UrlLogo => $"{_urlFront}/assets/images/logo-dragao-email.png";
+
         public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes, IEmailSender email)
         {
             _uof = uof;
@@ -68,7 +71,7 @@ namespace Wyvern.Application.Services
             }
             else
             {
-                var corpo = ModeloDeEmail.ContaJaExiste(existente.Nome, $"{_urlFront}/login");
+                var corpo = ModeloDeEmail.ContaJaExiste(existente.Nome, $"{_urlFront}/login", UrlLogo);
                 await _email.EnviarAsync(existente.Email, "Alguém tentou criar uma conta com o seu e-mail - Wyvern", corpo.Texto, corpo.Html);
             }
         }
@@ -109,7 +112,7 @@ namespace Wyvern.Application.Services
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
-            var corpo = ModeloDeEmail.Redefinicao(user.Nome, $"{_urlFront}/redefinir-senha?token={Uri.EscapeDataString(token)}");
+            var corpo = ModeloDeEmail.Redefinicao(user.Nome, $"{_urlFront}/redefinir-senha?token={Uri.EscapeDataString(token)}", UrlLogo);
             await _email.EnviarAsync(user.Email, "Redefinição de senha - Wyvern", corpo.Texto, corpo.Html);
         }
 
@@ -156,7 +159,7 @@ namespace Wyvern.Application.Services
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
-            var corpo = ModeloDeEmail.Confirmacao(user.Nome, $"{_urlFront}/confirmar-email?token={Uri.EscapeDataString(token)}");
+            var corpo = ModeloDeEmail.Confirmacao(user.Nome, $"{_urlFront}/confirmar-email?token={Uri.EscapeDataString(token)}", UrlLogo);
             await _email.EnviarAsync(user.Email, "Confirme o seu e-mail - Wyvern", corpo.Texto, corpo.Html);
         }
 
