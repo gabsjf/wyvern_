@@ -7,6 +7,7 @@ namespace Wyvern.Tests;
 public class ModeloDeEmailTests : IClassFixture<WyvernApiFactory>
 {
     private const string Url = "https://wyvern.sbs/redefinir-senha?token=12.abc-_&x=1";
+    private const string Logo = "https://wyvern.sbs/assets/images/logo-dragao-email.png";
 
     private readonly WyvernApiFactory _factory;
 
@@ -15,19 +16,27 @@ public class ModeloDeEmailTests : IClassFixture<WyvernApiFactory>
     [Fact]
     public void Redefinicao_tem_botao_com_o_link_e_versao_em_texto_com_o_mesmo_link()
     {
-        var corpo = ModeloDeEmail.Redefinicao("Ana", Url);
+        var corpo = ModeloDeEmail.Redefinicao("Ana", Url, Logo);
 
         Assert.Contains("href=\"https://wyvern.sbs/redefinir-senha?token=12.abc-_&amp;x=1\"", corpo.Html); // & escapado no atributo
-        Assert.Contains("Redefinir senha", corpo.Html);
+        Assert.Contains("Criar nova senha", corpo.Html);
         Assert.Contains("1 hora", corpo.Html);
         Assert.Contains(Url, corpo.Texto);
-        Assert.StartsWith("Olá, Ana.", corpo.Texto);
+        Assert.Contains("Olá, Ana.", corpo.Texto);
+    }
+
+    [Fact]
+    public void Todos_os_modelos_trazem_a_logo_com_texto_alternativo()
+    {
+        foreach (var corpo in new[] { ModeloDeEmail.Confirmacao("Ana", Url, Logo), ModeloDeEmail.Redefinicao("Ana", Url, Logo), ModeloDeEmail.ContaJaExiste("Ana", Url, Logo) })
+            Assert.Contains($"<img src=\"{Logo}\"", corpo.Html);
+        Assert.Contains("alt=\"Wyvern\"", ModeloDeEmail.Redefinicao("Ana", Url, Logo).Html);
     }
 
     [Fact]
     public void Nome_com_html_e_escapado()
     {
-        var corpo = ModeloDeEmail.Confirmacao("<script>alert(1)</script>", Url);
+        var corpo = ModeloDeEmail.Confirmacao("<script>alert(1)</script>", Url, Logo);
 
         Assert.DoesNotContain("<script>", corpo.Html);
         Assert.Contains("&lt;script&gt;", corpo.Html);
@@ -36,7 +45,7 @@ public class ModeloDeEmailTests : IClassFixture<WyvernApiFactory>
     [Fact]
     public void Os_tres_modelos_trazem_html_completo()
     {
-        foreach (var corpo in new[] { ModeloDeEmail.Confirmacao("Ana", Url), ModeloDeEmail.Redefinicao("Ana", Url), ModeloDeEmail.ContaJaExiste("Ana", Url) })
+        foreach (var corpo in new[] { ModeloDeEmail.Confirmacao("Ana", Url, Logo), ModeloDeEmail.Redefinicao("Ana", Url, Logo), ModeloDeEmail.ContaJaExiste("Ana", Url, Logo) })
         {
             Assert.StartsWith("<!doctype html>", corpo.Html);
             Assert.EndsWith("</html>", corpo.Html);
