@@ -6,7 +6,7 @@ using Wyvern.Application.Services;
 
 namespace Wyvern.Api.Extensions
 {
-    public record MensagemEmail(string Para, string Assunto, string Corpo);
+    public record MensagemEmail(string Para, string Assunto, string Corpo, string? CorpoHtml = null);
 
     /// <summary>Quem de fato entrega a mensagem (SMTP em produção, log em desenvolvimento).</summary>
     public interface ITransporteDeEmail
@@ -39,7 +39,8 @@ namespace Wyvern.Api.Extensions
             mime.From.Add(new MailboxAddress(_nomeRemetente, _remetente));
             mime.To.Add(MailboxAddress.Parse(mensagem.Para));
             mime.Subject = mensagem.Assunto;
-            mime.Body = new TextPart("plain") { Text = mensagem.Corpo };
+            // Texto puro sempre; com HTML a mensagem vai nas duas formas (multipart/alternative).
+            mime.Body = new BodyBuilder { TextBody = mensagem.Corpo, HtmlBody = mensagem.CorpoHtml }.ToMessageBody();
 
             using var smtp = new SmtpClient();
             await smtp.ConnectAsync(_host, _porta, _porta == 465 ? SecureSocketOptions.SslOnConnect : SecureSocketOptions.StartTls, ct);
@@ -79,9 +80,9 @@ namespace Wyvern.Api.Extensions
             _logger = logger;
         }
 
-        public Task EnviarAsync(string para, string assunto, string corpo)
+        public Task EnviarAsync(string para, string assunto, string corpo, string? corpoHtml = null)
         {
-            _fila.Writer.TryWrite(new MensagemEmail(para, assunto, corpo));
+            _fila.Writer.TryWrite(new MensagemEmail(para, assunto, corpo, corpoHtml));
             return Task.CompletedTask;
         }
 

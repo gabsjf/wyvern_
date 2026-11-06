@@ -41,15 +41,15 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
     /// <summary>Os e-mails que a API "enviou" durante os testes.</summary>
     public EmailSenderFalso Emails { get; } = new();
 
-    public record EmailEnviado(string Para, string Assunto, string Corpo);
+    public record EmailEnviado(string Para, string Assunto, string Corpo, string? Html = null);
 
     public class EmailSenderFalso : IEmailSender
     {
         public ConcurrentQueue<EmailEnviado> Enviados { get; } = new();
 
-        public Task EnviarAsync(string para, string assunto, string corpo)
+        public Task EnviarAsync(string para, string assunto, string corpo, string? corpoHtml = null)
         {
-            Enviados.Enqueue(new EmailEnviado(para, assunto, corpo));
+            Enviados.Enqueue(new EmailEnviado(para, assunto, corpo, corpoHtml));
             return Task.CompletedTask;
         }
 

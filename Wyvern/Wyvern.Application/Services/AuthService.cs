@@ -68,11 +68,8 @@ namespace Wyvern.Application.Services
             }
             else
             {
-                await _email.EnviarAsync(existente.Email, "Alguém tentou criar uma conta com o seu e-mail - Wyvern",
-                    $"Olá, {existente.Nome}.\n\n" +
-                    "Alguém tentou criar uma conta no Wyvern com este e-mail, mas ele já tem uma conta. " +
-                    $"Se foi você, é só entrar com a sua senha: {_urlFront}/login\n\n" +
-                    "Se não reconhece, ignore esta mensagem: nada foi alterado na sua conta.");
+                var corpo = ModeloDeEmail.ContaJaExiste(existente.Nome, $"{_urlFront}/login");
+                await _email.EnviarAsync(existente.Email, "Alguém tentou criar uma conta com o seu e-mail - Wyvern", corpo.Texto, corpo.Html);
             }
         }
 
@@ -112,11 +109,8 @@ namespace Wyvern.Application.Services
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
-            await _email.EnviarAsync(user.Email, "Redefinição de senha - Wyvern",
-                $"Olá, {user.Nome}.\n\n" +
-                "Recebemos um pedido para redefinir a senha da sua conta no Wyvern. Abra o link abaixo (vale por 1 hora e só funciona uma vez):\n" +
-                $"{_urlFront}/redefinir-senha?token={Uri.EscapeDataString(token)}\n\n" +
-                "Se não foi você, ignore esta mensagem: a sua senha continua a mesma.");
+            var corpo = ModeloDeEmail.Redefinicao(user.Nome, $"{_urlFront}/redefinir-senha?token={Uri.EscapeDataString(token)}");
+            await _email.EnviarAsync(user.Email, "Redefinição de senha - Wyvern", corpo.Texto, corpo.Html);
         }
 
         /// <summary>Troca a senha com o token do e-mail e derruba todas as sessões abertas da conta.</summary>
@@ -162,11 +156,8 @@ namespace Wyvern.Application.Services
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
-            await _email.EnviarAsync(user.Email, "Confirme o seu e-mail - Wyvern",
-                $"Olá, {user.Nome}.\n\n" +
-                "Para ativar a sua conta no Wyvern, abra o link abaixo (vale por 24 horas):\n" +
-                $"{_urlFront}/confirmar-email?token={Uri.EscapeDataString(token)}\n\n" +
-                "Se você não criou uma conta, ignore esta mensagem.");
+            var corpo = ModeloDeEmail.Confirmacao(user.Nome, $"{_urlFront}/confirmar-email?token={Uri.EscapeDataString(token)}");
+            await _email.EnviarAsync(user.Email, "Confirme o seu e-mail - Wyvern", corpo.Texto, corpo.Html);
         }
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
