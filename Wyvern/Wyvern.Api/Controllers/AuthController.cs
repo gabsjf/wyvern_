@@ -73,6 +73,11 @@ namespace Wyvern.Api.Controllers
                 var response = await _authService.LoginAsync(dto);
                 return IniciarSessao(response);
             }
+            catch (LoginBloqueadoException ex)
+            {
+                Response.Headers.RetryAfter = ((int)Math.Ceiling(ex.Espera.TotalSeconds)).ToString();
+                return StatusCode(StatusCodes.Status429TooManyRequests, new { message = ex.Message });
+            }
             catch (RegraNegocioException ex)
             {
                 return Unauthorized(new { message = ex.Message });

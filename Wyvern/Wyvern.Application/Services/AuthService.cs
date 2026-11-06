@@ -29,10 +29,16 @@ namespace Wyvern.Application.Services
         // PNG hospedado no front (public/assets/images); os e-mails não carregam imagem embutida.
         private string UrlLogo => $"{_urlFront}/assets/images/logo-dragao-email.png";
 
-        public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes, IEmailSender email)
+        private readonly ILimitadorDeLogin _limitador;
+
+        // Hash de uma senha qualquer: quando o e-mail não existe, o login gasta o mesmo tempo de uma conta de verdade.
+        private static readonly string HashFalso = BCrypt.Net.BCrypt.HashPassword("senha-que-ninguem-usa");
+
+        public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes, IEmailSender email, ILimitadorDeLogin limitador)
         {
             _uof = uof;
             _sessoes = sessoes;
+            _limitador = limitador;
             _email = email;
             _urlFront = (configuration["Email:UrlFront"] ?? throw new InvalidOperationException("Configure Email:UrlFront (variável Email__UrlFront)."))
                 .TrimEnd('/');
@@ -129,6 +135,9 @@ namespace Wyvern.Application.Services
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
+            // Quem provou ter o e-mail não fica preso a um bloqueio de tentativas anteriores.
+            _limitador.Zerar(user.Email);
+
             // Quem roubou a senha antiga pode estar logado: encerra tudo, inclusive os access tokens em cache.
             foreach (var familiaId in await _uof.RefreshTokenRepository.RevogarTodasAsync(user.UsuarioId, DateTime.UtcNow))
                 _sessoes.Invalidar(familiaId);
@@ -165,9 +174,21 @@ namespace Wyvern.Application.Services
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
         {
-            var user = await _uof.UsuarioRepository.GetByEmailAsync(dto.Email.Trim());
-            if (user == null || !user.Ativo || !BCrypt.Net.BCrypt.Verify(dto.Senha, user.SenhaHash))
+            var email = dto.Email.Trim();
+
+            // Bloqueado: nem confere a senha, para o atacante não testar palpites durante o bloqueio.
+            if (_limitador.TempoRestanteDoBloqueio(email) is { } espera)
+                throw new LoginBloqueadoException(espera);
+
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(email);
+            var senhaConfere = BCrypt.Net.BCrypt.Verify(dto.Senha, user?.SenhaHash ?? HashFalso);
+            if (user == null || !user.Ativo || !senhaConfere)
+            {
+                _limitador.RegistrarFalha(email); // conta existente ou não: o contador é por e-mail digitado
                 throw new RegraNegocioException("Email ou senha inválidos.");
+            }
+
+            _limitador.Zerar(email);
             // Só depois de a senha conferir: quem não tem a senha não descobre nada sobre a conta.
             if (user.EmailConfirmadoEm == null)
                 throw new RegraNegocioException("Confirme o seu e-mail para entrar. Enviamos um link para a sua caixa de entrada.");
