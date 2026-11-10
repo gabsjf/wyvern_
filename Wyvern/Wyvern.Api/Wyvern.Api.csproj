@@ -19,6 +19,7 @@
     </PackageReference>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" />
 	  <PackageReference Include="Scalar.AspNetCore.Microsoft" Version="2.13.17" />
+	  <PackageReference Include="Sentry.AspNetCore" Version="6.12.1" />
   </ItemGroup>
 
   <ItemGroup>

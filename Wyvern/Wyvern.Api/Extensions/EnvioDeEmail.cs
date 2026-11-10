@@ -88,16 +88,28 @@ namespace Wyvern.Api.Extensions
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
-            await foreach (var mensagem in _fila.Reader.ReadAllAsync(stoppingToken))
+            // Ao desligar a API o token é cancelado e a espera lança OperationCanceledException: isso é o fim normal do
+            // laço, não um erro, então é tratado aqui em vez de escapar do serviço.
+            try
             {
-                try
+                while (await _fila.Reader.WaitToReadAsync(stoppingToken))
                 {
-                    await _transporte.EnviarAsync(mensagem, stoppingToken);
+                    while (_fila.Reader.TryRead(out var mensagem))
+                    {
+                        try
+                        {
+                            await _transporte.EnviarAsync(mensagem, stoppingToken);
+                        }
+                        catch (Exception ex) when (ex is not OperationCanceledException)
+                        {
+                            _logger.LogError(ex, "Falha ao enviar o e-mail \"{Assunto}\".", mensagem.Assunto);
+                        }
+                    }
                 }
-                catch (Exception ex) when (ex is not OperationCanceledException)
-                {
-                    _logger.LogError(ex, "Falha ao enviar o e-mail \"{Assunto}\".", mensagem.Assunto);
-                }
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                // a API está desligando: os e-mails ainda na fila se perdem, como antes
             }
         }
     }

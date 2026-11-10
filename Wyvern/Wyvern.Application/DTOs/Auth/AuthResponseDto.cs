@@ -17,5 +17,9 @@ namespace Wyvern.Application.DTOs.Auth
         [JsonIgnore]
         public DateTime RefreshExpiraEm { get; set; }
         public string Papel { get; set; }
+        /// <summary>0 = sem foto; o front usa como versão na URL da foto.</summary>
+        public int FotoVersao { get; set; }
+        /// <summary>Conta Mestre com vaga no plano (ou qualquer conta no beta): o front mostra o botão "Nova campanha".</summary>
+        public bool PodeCriarCampanha { get; set; }
     }
 }

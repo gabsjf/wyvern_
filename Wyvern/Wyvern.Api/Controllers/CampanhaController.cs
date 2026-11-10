@@ -65,13 +65,16 @@ namespace Wyvern.Api.Controllers
             return Ok(campanhaDto);
         }
 
-        // Qualquer usuário autenticado pode criar uma campanha e passa a ser Mestre dela
-        // (CampanhaRepository.CreateCampanhaAsync registra o Mestre a partir do token, ignorando o DTO).
+        // Conta Mestre com vaga no plano (ou qualquer conta durante o beta) cria a campanha e passa a ser o dono e Mestre
+        // dela (CampanhaRepository.CreateCampanhaAsync registra o Mestre a partir do token, ignorando o DTO).
         [HttpPost]
-        public async Task<ActionResult<CampanhaResponseDetailDto>> CreateCampanha(CreateCampanhaDto campanhaDto)
+        public async Task<ActionResult<CampanhaResponseDetailDto>> CreateCampanha(CreateCampanhaDto campanhaDto, [FromServices] IPlanoService planos)
         {
             if (campanhaDto == null)
                 return BadRequest("Dados inválidos");
+
+            if (UsuarioId is not { } usuarioId) return Unauthorized();
+            await planos.GarantirPodeCriarCampanhaAsync(usuarioId); // sem vaga: 403 com o motivo
 
             var campanha = _mapper.Map<Campanha>(campanhaDto);
 

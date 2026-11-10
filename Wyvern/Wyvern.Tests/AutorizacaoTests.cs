@@ -32,7 +32,8 @@ public class AutorizacaoTests : IClassFixture<WyvernApiFactory>
     {
         var (_, sessao) = await _factory.NovoUsuarioAsync(papel: "Admin");
 
-        Assert.Equal("Jogador", sessao.Papel);
+        // No beta toda conta é Mestre; fora dele o papel inválido vira Jogador (PlanosTests).
+        Assert.Equal("Mestre", sessao.Papel);
     }
 
     [Fact]
@@ -53,7 +54,8 @@ public class AutorizacaoTests : IClassFixture<WyvernApiFactory>
 
         Assert.Equal(HttpStatusCode.OK, (await a.GetAsync($"/Usuario/{sessaoA.UsuarioId}")).StatusCode);
         Assert.Equal(HttpStatusCode.Forbidden, (await b.GetAsync($"/Usuario/{sessaoA.UsuarioId}")).StatusCode);
-        Assert.Equal(HttpStatusCode.Forbidden, (await b.DeleteAsync($"/Usuario/{sessaoA.UsuarioId}")).StatusCode);
+        // Excluir conta só existe como "me" (com senha), então não há rota por id para mirar a conta de outra pessoa.
+        Assert.Equal(HttpStatusCode.MethodNotAllowed, (await b.DeleteAsync($"/Usuario/{sessaoA.UsuarioId}")).StatusCode);
     }
 
     [Fact]

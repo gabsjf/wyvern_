@@ -37,6 +37,26 @@ namespace Wyvern.Infrastructure.Repositories.RefreshToken
             return familias;
         }
 
+        public Task ApagarTodosAsync(int usuarioId) =>
+            _context.RefreshTokens.Where(t => t.UsuarioId == usuarioId).ExecuteDeleteAsync();
+
+        public Task<List<RefreshTokenEntity>> ListarAtivosAsync(int usuarioId, DateTime agora) =>
+            _context.RefreshTokens
+                .AsNoTracking()
+                .Where(t => t.UsuarioId == usuarioId && t.RevogadoEm == null && t.ExpiraEm > agora)
+                .ToListAsync();
+
+        public Task<bool> FamiliaDoUsuarioAsync(int usuarioId, Guid familiaId) =>
+            _context.RefreshTokens.AnyAsync(t => t.UsuarioId == usuarioId && t.FamiliaId == familiaId);
+
+        public async Task<List<Guid>> RevogarOutrasAsync(int usuarioId, Guid familiaAtual, DateTime agora)
+        {
+            var outras = _context.RefreshTokens.Where(t => t.UsuarioId == usuarioId && t.FamiliaId != familiaAtual && t.RevogadoEm == null);
+            var familias = await outras.Select(t => t.FamiliaId).Distinct().ToListAsync();
+            await outras.ExecuteUpdateAsync(s => s.SetProperty(t => t.RevogadoEm, agora));
+            return familias;
+        }
+
         public Task<bool> SessaoAtivaAsync(Guid familiaId) =>
             _context.RefreshTokens.AnyAsync(t => t.FamiliaId == familiaId && t.RevogadoEm == null && t.Usuario!.Ativo);
 

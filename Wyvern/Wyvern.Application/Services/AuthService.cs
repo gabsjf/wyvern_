@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using Wyvern.Application.DTOs.Auth;
+using Wyvern.Application.DTOs.Usuario;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Exceptions;
 using Wyvern.Domain.Interfaces.Repositories;
@@ -16,7 +17,6 @@ namespace Wyvern.Application.Services
 {
     public class AuthService : IAuthService
     {
-        private static readonly string[] PapeisPermitidos = { "Mestre", "Jogador" };
         private static readonly TimeSpan ToleranciaReuso = TimeSpan.FromSeconds(10);
 
         private readonly IUnitOfWork _uof;
@@ -34,9 +34,12 @@ namespace Wyvern.Application.Services
         // Hash de uma senha qualquer: quando o e-mail não existe, o login gasta o mesmo tempo de uma conta de verdade.
         private static readonly string HashFalso = BCrypt.Net.BCrypt.HashPassword("senha-que-ninguem-usa");
 
-        public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes, IEmailSender email, ILimitadorDeLogin limitador)
+        private readonly IPlanoService _planos;
+
+        public AuthService(IUnitOfWork uof, IConfiguration configuration, ISessaoValidator sessoes, IEmailSender email, ILimitadorDeLogin limitador, IPlanoService planos)
         {
             _uof = uof;
+            _planos = planos;
             _sessoes = sessoes;
             _limitador = limitador;
             _email = email;
@@ -61,7 +64,9 @@ namespace Wyvern.Application.Services
                     Nome = dto.Nome.Trim(),
                     Email = email,
                     SenhaHash = senhaHash,
-                    Papel = NormalizarPapel(dto.Papel),
+                    // Tipo de conta: no beta, todo mundo é Mestre.
+                    Papel = _planos.TipoNoCadastro(dto.Papel),
+                    Plano = PlanosOptions.Gratuito,
                     CriadoEm = DateTime.Now,
                     Ativo = true
                 };
@@ -172,7 +177,7 @@ namespace Wyvern.Application.Services
             await _email.EnviarAsync(user.Email, "Confirme o seu e-mail - Wyvern", corpo.Texto, corpo.Html);
         }
 
-        public async Task<AuthResponseDto> LoginAsync(LoginDto dto)
+        public async Task<AuthResponseDto> LoginAsync(LoginDto dto, string? dispositivo = null)
         {
             var email = dto.Email.Trim();
 
@@ -193,7 +198,7 @@ namespace Wyvern.Application.Services
             if (user.EmailConfirmadoEm == null)
                 throw new RegraNegocioException("Confirme o seu e-mail para entrar. Enviamos um link para a sua caixa de entrada.");
 
-            return await CriarRespostaAsync(user, Guid.NewGuid());
+            return await CriarRespostaAsync(user, Guid.NewGuid(), dispositivo);
         }
 
         /// <summary>
@@ -229,7 +234,7 @@ namespace Wyvern.Application.Services
             }
 
             await _uof.RefreshTokenRepository.ApagarExpiradosAsync(user.UsuarioId, agora);
-            return await CriarRespostaAsync(user, atual.FamiliaId);
+            return await CriarRespostaAsync(user, atual.FamiliaId, atual.Dispositivo);
         }
 
         /// <summary>Logout: revoga a família do refresh token apresentado (se for válido), para ele não servir mais.</summary>
@@ -249,17 +254,234 @@ namespace Wyvern.Application.Services
             _sessoes.Invalidar(familiaId);
         }
 
+        // ---------- tela "Meu perfil" ----------
+
+        public async Task TrocarSenhaAsync(int usuarioId, Guid? sessaoAtual, string senhaAtual, string novaSenha)
+        {
+            var user = await ConferirSenhaAtualAsync(usuarioId, senhaAtual);
+
+            user.SenhaHash = BCrypt.Net.BCrypt.HashPassword(novaSenha);
+            await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
+            await _uof.CommitAsync();
+
+            // Se alguém mais tinha a senha antiga e está logado, cai agora; quem trocou continua onde está.
+            var agora = DateTime.UtcNow;
+            foreach (var familiaId in await _uof.RefreshTokenRepository.RevogarOutrasAsync(user.UsuarioId, sessaoAtual ?? Guid.Empty, agora))
+                _sessoes.Invalidar(familiaId);
+        }
+
+        public async Task SolicitarTrocaDeEmailAsync(int usuarioId, string novoEmail, string senhaAtual)
+        {
+            var user = await ConferirSenhaAtualAsync(usuarioId, senhaAtual);
+
+            var email = novoEmail.Trim();
+            if (string.Equals(email, user.Email, StringComparison.OrdinalIgnoreCase))
+                throw new RegraNegocioException("Esse já é o e-mail da sua conta.");
+
+            var token = NovoToken(user.UsuarioId);
+            user.EmailPendente = email;
+            user.TokenTrocaEmailHash = HashDoToken(token);
+            user.TokenTrocaEmailExpiraEm = DateTime.UtcNow.AddHours(24);
+            await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
+            await _uof.CommitAsync();
+
+            // E-mail de outra conta: tudo igual por fora, mas o link não sai. Assim a tela não vira um jeito de
+            // descobrir quem tem conta, e o dono daquele endereço não recebe nada estranho.
+            if (await _uof.UsuarioRepository.EmailEmUsoPorOutraContaAsync(email, user.UsuarioId))
+                return;
+
+            var corpo = ModeloDeEmail.TrocaDeEmail(user.Nome, $"{_urlFront}/confirmar-troca-email?token={Uri.EscapeDataString(token)}", UrlLogo);
+            await _email.EnviarAsync(email, "Confirme o novo e-mail - Wyvern", corpo.Texto, corpo.Html);
+        }
+
+        public async Task ConfirmarTrocaDeEmailAsync(string token)
+        {
+            var user = await UsuarioDoTokenAsync(token);
+            if (user == null || user.EmailPendente == null || !TokenConfere(token, user.TokenTrocaEmailHash, user.TokenTrocaEmailExpiraEm))
+                throw new RegraNegocioException("Link de troca de e-mail inválido ou expirado.");
+
+            var novo = user.EmailPendente;
+            if (await _uof.UsuarioRepository.EmailEmUsoPorOutraContaAsync(novo, user.UsuarioId))
+                throw new RegraNegocioException("Esse e-mail passou a ser usado por outra conta. Peça a troca de novo com outro endereço.");
+
+            var antigo = user.Email;
+            user.Email = novo;
+            user.EmailPendente = null;
+            user.TokenTrocaEmailHash = null;
+            user.TokenTrocaEmailExpiraEm = null;
+            await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
+            await _uof.CommitAsync();
+
+            // O bloqueio de tentativas é por e-mail digitado: o novo começa limpo e o antigo não serve mais.
+            _limitador.Zerar(antigo);
+            _limitador.Zerar(novo);
+
+            var corpo = ModeloDeEmail.EmailAlterado(user.Nome, MascararEmail(novo), $"{_urlFront}/login", UrlLogo);
+            await _email.EnviarAsync(antigo, "O e-mail da sua conta foi alterado - Wyvern", corpo.Texto, corpo.Html);
+        }
+
+        public async Task<List<SessaoAtivaDto>> ListarSessoesAsync(int usuarioId, Guid? sessaoAtual)
+        {
+            var tokens = await _uof.RefreshTokenRepository.ListarAtivosAsync(usuarioId, DateTime.UtcNow);
+            return tokens
+                .GroupBy(t => t.FamiliaId)
+                .Select(g =>
+                {
+                    var maisRecente = g.MaxBy(t => t.CriadoEm)!;
+                    return new SessaoAtivaDto
+                    {
+                        Id = g.Key,
+                        Dispositivo = string.IsNullOrWhiteSpace(maisRecente.Dispositivo) ? "Aparelho desconhecido" : maisRecente.Dispositivo,
+                        IniciadaEm = g.Min(t => t.CriadoEm),
+                        UltimaAtividadeEm = maisRecente.CriadoEm,
+                        Atual = g.Key == sessaoAtual
+                    };
+                })
+                .OrderByDescending(s => s.Atual)
+                .ThenByDescending(s => s.UltimaAtividadeEm)
+                .ToList();
+        }
+
+        public async Task<bool> EncerrarSessaoDoUsuarioAsync(int usuarioId, Guid sessaoAtual, Guid sessaoId)
+        {
+            if (sessaoId == sessaoAtual)
+                throw new RegraNegocioException("Para encerrar a sessão deste aparelho, use \"Sair\".");
+            if (!await _uof.RefreshTokenRepository.FamiliaDoUsuarioAsync(usuarioId, sessaoId))
+                return false;
+
+            await RevogarFamiliaAsync(sessaoId, DateTime.UtcNow);
+            return true;
+        }
+
+        public async Task EncerrarOutrasSessoesAsync(int usuarioId, Guid sessaoAtual)
+        {
+            foreach (var familiaId in await _uof.RefreshTokenRepository.RevogarOutrasAsync(usuarioId, sessaoAtual, DateTime.UtcNow))
+                _sessoes.Invalidar(familiaId);
+        }
+
+        // ---------- exclusão de conta ----------
+
+        public async Task<PreviaDeExclusaoDto> PreviaDeExclusaoAsync(int usuarioId)
+        {
+            var previa = new PreviaDeExclusaoDto();
+            var campanhas = await _uof.CampanhaRepository.GetCampanhasDoUsuarioParaGestaoAsync(usuarioId);
+            foreach (var campanha in campanhas.Where(c => c.MestreId == usuarioId))
+            {
+                var sucessor = SucessorDaCampanha(campanha, usuarioId);
+                if (sucessor != null)
+                    previa.Transferidas.Add(new CampanhaTransferidaDto { Campanha = campanha.Nome, NovoDono = sucessor.Usuario?.Nome ?? "outro Mestre" });
+                else
+                    previa.Encerradas.Add(campanha.Nome);
+            }
+            return previa;
+        }
+
+        public async Task ExcluirContaAsync(int usuarioId, string senha)
+        {
+            var user = await ConferirSenhaAtualAsync(usuarioId, senha);
+            var nome = user.Nome;
+            var email = user.Email;
+
+            foreach (var campanha in await _uof.CampanhaRepository.GetCampanhasDoUsuarioParaGestaoAsync(usuarioId))
+            {
+                if (campanha.MestreId == usuarioId)
+                {
+                    // Dona: o co-Mestre mais antigo assume; sem co-Mestre, a campanha é encerrada para todos.
+                    var sucessor = SucessorDaCampanha(campanha, usuarioId);
+                    if (sucessor != null)
+                        campanha.MestreId = sucessor.UsuarioId;
+                    else
+                        campanha.Ativo = false;
+                }
+                else
+                {
+                    GarantirMestreDepoisDaSaida(campanha, usuarioId);
+                }
+            }
+
+            // Sai de todas as campanhas, leva as anotações privadas e a foto; personagens e crônica ficam com o grupo.
+            await _uof.UsuarioRepository.DesvincularContaAsync(usuarioId);
+
+            // Dados pessoais: a linha fica só para as referências (personagens, crônica) apontarem para "Conta excluída".
+            user.Nome = "Conta excluída";
+            user.Email = $"excluida-{usuarioId}-{Guid.NewGuid():N}@conta-excluida.invalid";
+            user.SenhaHash = BCrypt.Net.BCrypt.HashPassword(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+            user.Ativo = false;
+            user.ExcluidoEm = DateTime.UtcNow;
+            user.EmailConfirmadoEm = null;
+            user.EmailPendente = null;
+            user.TokenConfirmacaoHash = null;
+            user.TokenConfirmacaoExpiraEm = null;
+            user.TokenRedefinicaoHash = null;
+            user.TokenRedefinicaoExpiraEm = null;
+            user.TokenTrocaEmailHash = null;
+            user.TokenTrocaEmailExpiraEm = null;
+            user.FotoVersao = 0;
+            user.Papel = PlanoService.Jogador;
+            user.Plano = PlanosOptions.Gratuito;
+            await _uof.CommitAsync();
+
+            // Todas as sessões caem já (inclusive a atual) e os registros de aparelho somem.
+            foreach (var familiaId in await _uof.RefreshTokenRepository.RevogarTodasAsync(usuarioId, DateTime.UtcNow))
+                _sessoes.Invalidar(familiaId);
+            await _uof.RefreshTokenRepository.ApagarTodosAsync(usuarioId);
+            _limitador.Zerar(email);
+
+            var corpo = ModeloDeEmail.ContaExcluida(nome, $"{_urlFront}/register", UrlLogo);
+            await _email.EnviarAsync(email, "A sua conta foi excluída - Wyvern", corpo.Texto, corpo.Html);
+        }
+
+        // Quem assume a campanha: o co-Mestre que está nela há mais tempo. Jogador comum não vira dono sem ter sido promovido.
+        private static CampanhaMembro? SucessorDaCampanha(Campanha campanha, int usuarioId) =>
+            campanha.Membros?
+                .Where(m => m.UsuarioId != usuarioId && m.Papel == PapelCampanha.Mestre && m.Usuario is { Ativo: true })
+                .OrderBy(m => m.EntrouEm)
+                .FirstOrDefault();
+
+        // Campanha de outra pessoa em que ela era o único Mestre (o dono tinha se rebaixado): sem isso a mesa ficaria sem
+        // ninguém para gerenciar. O dono volta a ser Mestre; se o dono já saiu, assume o membro mais antigo.
+        private static void GarantirMestreDepoisDaSaida(Campanha campanha, int usuarioId)
+        {
+            var restantes = campanha.Membros?.Where(m => m.UsuarioId != usuarioId && m.Usuario is { Ativo: true }).ToList() ?? new();
+            if (restantes.Count == 0 || restantes.Any(m => m.Papel == PapelCampanha.Mestre)) return;
+
+            var novo = restantes.FirstOrDefault(m => m.UsuarioId == campanha.MestreId) ?? restantes.OrderBy(m => m.EntrouEm).First();
+            novo.Papel = PapelCampanha.Mestre;
+        }
+
+        // Mesmo bloqueio do login: senão, quem pegasse uma sessão aberta testaria senhas por aqui à vontade.
+        private async Task<Usuario> ConferirSenhaAtualAsync(int usuarioId, string senhaAtual)
+        {
+            var user = await _uof.UsuarioRepository.GetUsuarioAsync(usuarioId)
+                       ?? throw new RegraNegocioException("Conta não encontrada.");
+
+            if (_limitador.TempoRestanteDoBloqueio(user.Email) is { } espera)
+                throw new LoginBloqueadoException(espera);
+
+            if (!BCrypt.Net.BCrypt.Verify(senhaAtual, user.SenhaHash))
+            {
+                _limitador.RegistrarFalha(user.Email);
+                throw new RegraNegocioException("Senha atual incorreta.");
+            }
+
+            _limitador.Zerar(user.Email);
+            return user;
+        }
+
+        // "joana@exemplo.com" vira "jo***@exemplo.com": o aviso não entrega o endereço novo inteiro a quem lê o antigo.
+        private static string MascararEmail(string email)
+        {
+            var arroba = email.IndexOf('@');
+            if (arroba <= 0) return "***";
+            var visivel = email[..Math.Min(2, arroba)];
+            return $"{visivel}***{email[arroba..]}";
+        }
+
         private static RegraNegocioException SessaoExpirada() => new("Sessão expirada. Entre novamente.");
 
         private static string HashDoToken(string token) =>
             Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token))).ToLowerInvariant();
 
-        // O papel global é só uma preferência de interface; qualquer valor fora da lista vira "Jogador".
-        private static string NormalizarPapel(string? papel)
-        {
-            return PapeisPermitidos.FirstOrDefault(p => string.Equals(p, papel?.Trim(), StringComparison.OrdinalIgnoreCase))
-                   ?? "Jogador";
-        }
 
         public const string ClaimTicketHub = "hub_ticket";
         public const string SidClaim = "sid";
@@ -295,7 +517,7 @@ namespace Wyvern.Application.Services
             if (!string.IsNullOrEmpty(valor)) claims.Add(new Claim(tipoNoToken, valor));
         }
 
-        private async Task<AuthResponseDto> CriarRespostaAsync(Usuario user, Guid familiaId)
+        private async Task<AuthResponseDto> CriarRespostaAsync(Usuario user, Guid familiaId, string? dispositivo)
         {
             var agora = DateTime.UtcNow;
             var refreshToken = Convert.ToBase64String(RandomNumberGenerator.GetBytes(32))
@@ -308,7 +530,8 @@ namespace Wyvern.Application.Services
                 FamiliaId = familiaId,
                 TokenHash = HashDoToken(refreshToken),
                 CriadoEm = agora,
-                ExpiraEm = expiraEm
+                ExpiraEm = expiraEm,
+                Dispositivo = dispositivo
             });
             await _uof.CommitAsync();
 
@@ -318,6 +541,8 @@ namespace Wyvern.Application.Services
                 Nome = user.Nome,
                 Email = user.Email,
                 Papel = user.Papel,
+                FotoVersao = user.FotoVersao,
+                PodeCriarCampanha = (await _planos.ContaAsync(user.UsuarioId)).PodeCriarCampanha,
                 Token = GenerateJwtToken(user, familiaId),
                 RefreshToken = refreshToken,
                 RefreshExpiraEm = expiraEm

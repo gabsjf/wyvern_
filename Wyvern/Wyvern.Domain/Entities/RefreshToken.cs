@@ -24,6 +24,10 @@ namespace Wyvern.Domain.Entities
         public DateTime CriadoEm { get; set; }
         public DateTime ExpiraEm { get; set; }
 
+        /// <summary>Descrição do aparelho do login ("Chrome em Windows"), herdada pelos tokens da família; só para a tela de aparelhos conectados.</summary>
+        [MaxLength(120)]
+        public string? Dispositivo { get; set; }
+
         /// <summary>Quando foi trocado por um token novo (nulo = ainda não usado).</summary>
         public DateTime? UsadoEm { get; set; }
 

@@ -16,6 +16,12 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
     // Os testes cadastram muitos usuários do mesmo "IP"; o teste de rate limit usa um limite baixo.
     public int AuthPermitLimit { get; init; } = 1000;
 
+    /// <summary>Nulo: vale o appsettings (beta ligado). Os testes de planos desligam para os limites valerem.</summary>
+    public bool? Beta { get; init; }
+
+    /// <summary>E-mail que recebe o claim de administrador.</summary>
+    public string? AdminEmail { get; init; }
+
     private readonly string _dbPath = Path.Combine(Path.GetTempPath(), $"wyvern-tests-{Guid.NewGuid():N}.db");
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -35,6 +41,8 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
         }
         builder.UseSetting("Jwt:Key", "chave-de-teste-com-mais-de-trinta-e-dois-caracteres");
         builder.UseSetting("RateLimit:AuthPermitLimit", AuthPermitLimit.ToString());
+        if (Beta is { } beta) builder.UseSetting("Planos:Beta", beta ? "true" : "false");
+        if (AdminEmail != null) builder.UseSetting("Admin:Emails:0", AdminEmail);
         builder.ConfigureServices(services => services.AddSingleton<IEmailSender>(Emails));
     }
 

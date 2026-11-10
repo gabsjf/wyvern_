@@ -39,6 +39,7 @@ namespace Wyvern.Infrastructure.Data
         public DbSet<EventoCampanha> EventosCampanha { get; set; }
         public DbSet<Cena> Cenas { get; set; }
         public DbSet<CenaImagem> CenaImagens { get; set; }
+        public DbSet<UsuarioFoto> UsuarioFotos { get; set; }
         public DbSet<TokenCena> TokensCena { get; set; }
         public DbSet<TokenImagem> TokenImagens { get; set; }
         public DbSet<ParedeCena> ParedesCena { get; set; }
@@ -245,6 +246,11 @@ namespace Wyvern.Infrastructure.Data
             modelBuilder.Entity<Usuario>()
                 .HasIndex(u => u.Email)
                 .IsUnique();
+
+            modelBuilder.Entity<Usuario>().Property(u => u.Plano).HasDefaultValue("Free");
+
+            modelBuilder.Entity<UsuarioFoto>()
+                .HasOne(f => f.Usuario).WithOne().HasForeignKey<UsuarioFoto>(f => f.UsuarioId).OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<RefreshToken>().HasIndex(t => t.TokenHash).IsUnique();
             modelBuilder.Entity<RefreshToken>().HasIndex(t => t.FamiliaId);

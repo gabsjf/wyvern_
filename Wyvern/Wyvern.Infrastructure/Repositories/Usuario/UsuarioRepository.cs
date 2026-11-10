@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using Wyvern.Domain.Entities;
 using Wyvern.Infrastructure.Data;
 using UsuarioEntity = Wyvern.Domain.Entities.Usuario;
 using Wyvern.Domain.Interfaces.Repositories.Usuario;
@@ -55,16 +56,60 @@ namespace Wyvern.Infrastructure.Repositories.Usuario
             return Task.FromResult(usuario);
         }
 
-        public async Task<UsuarioEntity> DeleteUsuarioAsync(int id)
+        public Task<UsuarioEntity?> GetResumoAsync(int id) =>
+            _context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.UsuarioId == id && u.Ativo);
+
+        public Task<bool> EmailEmUsoPorOutraContaAsync(string email, int usuarioId) =>
+            _context.Usuarios.AnyAsync(u => u.Email == email && u.UsuarioId != usuarioId);
+
+        public Task<UsuarioFoto?> GetFotoAsync(int usuarioId) =>
+            _context.UsuarioFotos.AsNoTracking().FirstOrDefaultAsync(f => f.UsuarioId == usuarioId);
+
+        public async Task SalvarFotoAsync(int usuarioId, string tipo, byte[] dados)
         {
-            var usuario = await _context.Usuarios.FindAsync(id);
+            var foto = await _context.UsuarioFotos.FirstOrDefaultAsync(f => f.UsuarioId == usuarioId);
+            if (foto == null)
+                _context.UsuarioFotos.Add(new UsuarioFoto { UsuarioId = usuarioId, Tipo = tipo, Dados = dados });
+            else
+            {
+                foto.Tipo = tipo;
+                foto.Dados = dados;
+            }
+        }
 
-            if (usuario is null)
-                throw new ArgumentNullException(nameof(usuario));
+        public async Task RemoverFotoAsync(int usuarioId)
+        {
+            var foto = await _context.UsuarioFotos.FirstOrDefaultAsync(f => f.UsuarioId == usuarioId);
+            if (foto != null) _context.UsuarioFotos.Remove(foto);
+        }
 
-            usuario.Ativo = false;
+        public async Task DesvincularContaAsync(int usuarioId)
+        {
+            // Anotações: as privadas eram só dela e somem; as públicas são do grupo e ficam, sem autor.
+            var anotacoes = await _context.Anotacoes.Where(a => a.CriadoPorId == usuarioId).ToListAsync();
+            _context.Anotacoes.RemoveRange(anotacoes.Where(a => !a.IsPublica));
+            foreach (var publica in anotacoes.Where(a => a.IsPublica))
+                publica.CriadoPorId = null;
 
-            return usuario;
+            // Pastas: mesma regra. Uma pasta privada pode guardar anotação pública de outra pessoa: ela sai da pasta e fica.
+            var pastas = await _context.PastasAnotacao.Where(p => p.CriadoPorId == usuarioId).ToListAsync();
+            var privadas = pastas.Where(p => !p.IsPublica).Select(p => p.PastaId).ToList();
+            if (privadas.Count > 0)
+            {
+                var restantes = await _context.Anotacoes.Where(a => a.PastaId != null && privadas.Contains(a.PastaId.Value)).ToListAsync();
+                foreach (var anotacao in restantes)
+                    anotacao.PastaId = null;
+            }
+            _context.PastasAnotacao.RemoveRange(pastas.Where(p => !p.IsPublica));
+            foreach (var publica in pastas.Where(p => p.IsPublica))
+                publica.CriadoPorId = null;
+
+            // Tokens do mapa que ela movia ficam com o Mestre.
+            foreach (var token in await _context.TokensCena.Where(t => t.ControladoPorId == usuarioId).ToListAsync())
+                token.ControladoPorId = null;
+
+            _context.CampanhasMembros.RemoveRange(await _context.CampanhasMembros.Where(m => m.UsuarioId == usuarioId).ToListAsync());
+            await RemoverFotoAsync(usuarioId);
         }
     }
 }
