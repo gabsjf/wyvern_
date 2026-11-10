@@ -23,5 +23,11 @@ namespace Wyvern.Domain.Interfaces.Repositories.Campanha
 
         /// <summary>Campanha ativa com membros (e seus usuários), rastreada para alteração e sem filtro pelo usuário atual. Quem chama deve checar a permissão.</summary>
         Task<CampanhaEntity?> GetCampanhaParaGestaoAsync(int campanhaId);
+
+        /// <summary>Campanhas ativas de que o usuário é dono (criador): é o que o plano limita.</summary>
+        Task<int> ContarCampanhasDoDonoAsync(int usuarioId);
+
+        /// <summary>Campanhas ativas de que o usuário é dono ou membro, com membros e seus usuários, rastreadas para alteração.</summary>
+        Task<List<CampanhaEntity>> GetCampanhasDoUsuarioParaGestaoAsync(int usuarioId);
     }
 }

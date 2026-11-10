@@ -66,6 +66,16 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
                 .FirstOrDefaultAsync(c => c.CampanhaId == campanhaId && c.Ativo);
         }
 
+        public Task<List<CampanhaEntity>> GetCampanhasDoUsuarioParaGestaoAsync(int usuarioId) =>
+            _context.Campanhas
+                .Include(c => c.Membros!)
+                    .ThenInclude(m => m.Usuario)
+                .Where(c => c.Ativo && (c.MestreId == usuarioId || c.Membros!.Any(m => m.UsuarioId == usuarioId)))
+                .ToListAsync();
+
+        public Task<int> ContarCampanhasDoDonoAsync(int usuarioId) =>
+            _context.Campanhas.CountAsync(c => c.MestreId == usuarioId && c.Ativo);
+
         public Task<CampanhaEntity> CreateCampanhaAsync(CampanhaEntity campanha)
         {
             if (campanha is null)

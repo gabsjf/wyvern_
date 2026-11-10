@@ -36,6 +36,9 @@ services:
       - Email__Usuario=${EMAIL_USUARIO:?Defina EMAIL_USUARIO no arquivo .env}
       - Email__Senha=${EMAIL_SENHA:?Defina EMAIL_SENHA no arquivo .env}
       - Email__Remetente=${EMAIL_REMETENTE:?Defina EMAIL_REMETENTE no arquivo .env}
+      # Monitoramento de erros (Sentry). Vazio = desligado.
+      - Sentry__Dsn=${SENTRY_DSN:-}
+      - Sentry__Environment=production
     # Sem "ports": quem fala com a API é o Caddy, pela rede interna.
     expose:
       - "8080"

@@ -19,6 +19,8 @@ using Microsoft.AspNetCore.HttpOverrides;
 AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
 
 var builder = WebApplication.CreateBuilder(args);
+// Sentry: só liga com Sentry:Dsn configurado (variável Sentry__Dsn); sem ele nada é enviado.
+builder.AddMonitoramentoDeErros();
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
@@ -38,6 +40,9 @@ builder.Services.AddMemoryCache();
 builder.Services.AddScoped<ISessaoValidator, SessaoValidator>();
 builder.Services.AddSingleton<ILimitadorDeLogin, LimitadorDeLogin>(); // estado em memória, compartilhado entre requisições
 builder.Services.AddScoped<IAuthService, AuthService>();
+// Planos: limites por tipo de conta; "Planos:Beta" libera tudo para todo mundo enquanto durar o beta.
+builder.Services.Configure<PlanosOptions>(builder.Configuration.GetSection(PlanosOptions.Secao));
+builder.Services.AddScoped<IPlanoService, PlanoService>();
 builder.Services.AddEnvioDeEmail(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();
 builder.Services.AddScoped<ICampanhaService, CampanhaService>();
@@ -125,6 +130,7 @@ builder.Services.AddAuthentication(x =>
 builder.Services.AddAuthorization(options =>
 {
     options.AddPolicy("CatalogoAdmin", policy => policy.RequireClaim("admin", "true"));
+    options.AddPolicy("Admin", policy => policy.RequireClaim("admin", "true"));
 });
 
 builder.Services.AddOpenApi();
@@ -225,6 +231,7 @@ app.UseCors("Frontend");
 app.UseMiddleware<ProtecaoCsrfMiddleware>();
 
 app.UseAuthentication();
+app.UseMonitoramentoDeErros(); // depois da autenticação: marca os erros com o id da conta
 app.UseRateLimiter(); // depois da autenticação: a política "upload" particiona por usuário
 app.UseAuthorization();
 

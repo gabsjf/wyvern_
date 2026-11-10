@@ -6,6 +6,7 @@ using Wyvern.Api.Extensions;
 using Wyvern.Application.DTOs.Auth;
 using Wyvern.Application.Services;
 using Wyvern.Domain.Exceptions;
+using Wyvern.Domain.Interfaces.Repositories;
 
 namespace Wyvern.Api.Controllers
 {
@@ -15,10 +16,12 @@ namespace Wyvern.Api.Controllers
     public class AuthController : ControllerBase
     {
         private readonly IAuthService _authService;
+        private readonly IUnitOfWork _uof;
 
-        public AuthController(IAuthService authService)
+        public AuthController(IAuthService authService, IUnitOfWork uof)
         {
             _authService = authService;
+            _uof = uof;
         }
 
         [HttpPost("register")]
@@ -35,6 +38,21 @@ namespace Wyvern.Api.Controllers
             try
             {
                 await _authService.ConfirmarEmailAsync(dto.Token);
+                return NoContent();
+            }
+            catch (RegraNegocioException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+        }
+
+        /// <summary>Clique no link enviado ao e-mail novo pela tela de perfil; não precisa estar logado (pode abrir em outro aparelho).</summary>
+        [HttpPost("confirmar-troca-email")]
+        public async Task<IActionResult> ConfirmarTrocaEmail([FromBody] ConfirmarEmailDto dto)
+        {
+            try
+            {
+                await _authService.ConfirmarTrocaDeEmailAsync(dto.Token);
                 return NoContent();
             }
             catch (RegraNegocioException ex)
@@ -70,7 +88,7 @@ namespace Wyvern.Api.Controllers
         {
             try
             {
-                var response = await _authService.LoginAsync(dto);
+                var response = await _authService.LoginAsync(dto, DescritorDeDispositivo.Descrever(Request.Headers.UserAgent.ToString(), SessionCookie.ClienteNativo(Request)));
                 return IniciarSessao(response);
             }
             catch (LoginBloqueadoException ex)
@@ -85,21 +103,27 @@ namespace Wyvern.Api.Controllers
         }
 
         /// <summary>Quem está logado. É assim que o front descobre se há sessão, já que não consegue ler o cookie.</summary>
-        // Fora do limite "auth": o front chama a cada carga de página.
+        // Fora do limite "auth": o front chama a cada carga de página. Lê do banco, e não das claims do token, para o nome
+        // e o e-mail trocados no perfil aparecerem já na próxima carga, sem esperar o token renovar.
         [HttpGet("me")]
         [Authorize]
         [DisableRateLimiting]
-        public IActionResult Me()
+        public async Task<IActionResult> Me([FromServices] IPlanoService planos)
         {
             if (!int.TryParse(User.FindFirst("nameid")?.Value, out var usuarioId))
                 return Unauthorized();
 
+            var user = await _uof.UsuarioRepository.GetResumoAsync(usuarioId);
+            if (user == null) return Unauthorized();
+
             return Ok(new AuthResponseDto
             {
-                UsuarioId = usuarioId,
-                Nome = User.FindFirst("unique_name")?.Value ?? string.Empty,
-                Email = User.FindFirst("email")?.Value ?? string.Empty,
-                Papel = User.FindFirst("role")?.Value ?? "Jogador"
+                UsuarioId = user.UsuarioId,
+                Nome = user.Nome,
+                Email = user.Email,
+                Papel = user.Papel ?? "Jogador",
+                FotoVersao = user.FotoVersao,
+                PodeCriarCampanha = (await planos.ContaAsync(user.UsuarioId)).PodeCriarCampanha
             });
         }
 

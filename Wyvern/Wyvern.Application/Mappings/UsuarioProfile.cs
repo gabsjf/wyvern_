@@ -9,7 +9,6 @@ namespace Wyvern.Application.Mappings
         public UsuarioProfile()
         {
             CreateMap<Usuario, CreateUsuarioDto>().ReverseMap();
-            CreateMap<Usuario, UsuarioUpdateDto>().ReverseMap();
             CreateMap<Usuario, UsuarioResponseDto>().ReverseMap();
         }
     }

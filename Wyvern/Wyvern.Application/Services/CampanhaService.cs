@@ -13,11 +13,13 @@ namespace Wyvern.Application.Services
         private readonly IUnitOfWork _uof;
         private readonly TimeProvider _tempo;
         private readonly int _validadeDias;
+        private readonly IPlanoService _planos;
 
-        public CampanhaService(IUnitOfWork uof, TimeProvider tempo, IConfiguration configuration)
+        public CampanhaService(IUnitOfWork uof, TimeProvider tempo, IConfiguration configuration, IPlanoService planos)
         {
             _uof = uof;
             _tempo = tempo;
+            _planos = planos;
             _validadeDias = int.TryParse(configuration["Convite:ValidadeDias"], out var dias) && dias > 0 ? dias : ValidadePadraoDias;
         }
 
@@ -90,6 +92,9 @@ namespace Wyvern.Application.Services
 
                 return campanha.CampanhaId; // já participa: nada a fazer
             }
+
+            // O limite de jogadores é o do plano do dono da campanha.
+            await _planos.GarantirVagaNaCampanhaAsync(campanha);
 
             campanha.Membros ??= new List<CampanhaMembro>();
             campanha.Membros.Add(new CampanhaMembro

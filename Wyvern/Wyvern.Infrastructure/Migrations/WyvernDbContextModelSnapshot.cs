@@ -1349,6 +1349,10 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("Dispositivo")
+                        .HasMaxLength(120)
+                        .HasColumnType("character varying(120)");
+
                     b.Property<DateTime>("ExpiraEm")
                         .HasColumnType("timestamp without time zone");
 
@@ -1603,6 +1607,16 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<DateTime?>("EmailConfirmadoEm")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("EmailPendente")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<DateTime?>("ExcluidoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("FotoVersao")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1610,6 +1624,16 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<string>("Papel")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<string>("Plano")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(40)
+                        .HasColumnType("character varying(40)")
+                        .HasDefaultValue("Free");
+
+                    b.Property<DateTime?>("PlanoAlteradoEm")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("SenhaHash")
                         .IsRequired()
@@ -1627,12 +1651,37 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<string>("TokenRedefinicaoHash")
                         .HasColumnType("text");
 
+                    b.Property<DateTime?>("TokenTrocaEmailExpiraEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenTrocaEmailHash")
+                        .HasColumnType("text");
+
                     b.HasKey("UsuarioId");
 
                     b.HasIndex("Email")
                         .IsUnique();
 
                     b.ToTable("Usuario", (string)null);
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.UsuarioFoto", b =>
+                {
+                    b.Property<int>("UsuarioId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Dados")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("UsuarioId");
+
+                    b.ToTable("UsuarioFoto");
                 });
 
             modelBuilder.Entity("Wyvern.Domain.Entities.Anotacao", b =>
@@ -2100,6 +2149,17 @@ namespace Wyvern.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.SetNull);
 
                     b.Navigation("Cena");
+
+                    b.Navigation("Usuario");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.UsuarioFoto", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Usuario", "Usuario")
+                        .WithOne()
+                        .HasForeignKey("Wyvern.Domain.Entities.UsuarioFoto", "UsuarioId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
 
                     b.Navigation("Usuario");
                 });

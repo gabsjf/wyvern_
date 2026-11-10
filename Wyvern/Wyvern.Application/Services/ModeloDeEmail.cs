@@ -47,6 +47,45 @@ namespace Wyvern.Application.Services
             tituloNota: "Nada foi alterado",
             nota: "Se você não reconhece essa tentativa, pode ignorar esta mensagem: a sua conta continua como estava.");
 
+        public static CorpoDeEmail TrocaDeEmail(string nome, string url, string urlLogo) => Montar(
+            preheader: "Confirme o novo e-mail da sua conta no Wyvern.",
+            eyebrow: "Troca de e-mail",
+            titulo: "Confirme o novo e-mail",
+            nome: nome,
+            paragrafos: new[] { "Você pediu para usar este endereço na sua conta do Wyvern. Para concluir a troca, confirme no botão abaixo. Até lá, o e-mail antigo continua valendo para entrar." },
+            textoBotao: "Confirmar novo e-mail", url: url, urlLogo: urlLogo,
+            tituloNota: "Link válido por 24 horas",
+            nota: "Se não foi você que pediu, ignore esta mensagem: nada muda sem o clique.");
+
+        /// <summary>Vai para o e-mail antigo depois da troca. <paramref name="novoEmailMascarado"/> não mostra o endereço inteiro.</summary>
+        public static CorpoDeEmail EmailAlterado(string nome, string novoEmailMascarado, string urlLogin, string urlLogo) => Montar(
+            preheader: "O e-mail da sua conta no Wyvern foi alterado.",
+            eyebrow: "Aviso de segurança",
+            titulo: "O seu e-mail foi alterado",
+            nome: nome,
+            paragrafos: new[]
+            {
+                $"A sua conta no Wyvern agora usa o e-mail {novoEmailMascarado}. Este endereço não serve mais para entrar.",
+                "Se foi você, está tudo certo e não precisa fazer nada."
+            },
+            textoBotao: "Ir para o Wyvern", url: urlLogin, urlLogo: urlLogo,
+            tituloNota: "Não reconhece a troca?",
+            nota: "Alguém pode ter a sua senha. Fale com o suporte do Wyvern o quanto antes para recuperar a conta.");
+
+        public static CorpoDeEmail ContaExcluida(string nome, string urlCadastro, string urlLogo) => Montar(
+            preheader: "A sua conta no Wyvern foi excluída.",
+            eyebrow: "Conta excluída",
+            titulo: "Até a próxima aventura",
+            nome: nome,
+            paragrafos: new[]
+            {
+                "A sua conta no Wyvern foi excluída, como você pediu. Apagamos os seus dados pessoais, a sua foto e as suas anotações privadas, e encerramos todas as sessões abertas.",
+                "Os personagens que você criou continuam nas campanhas dos seus grupos, sem o seu nome. Se quiser voltar um dia, este e-mail pode ser usado num cadastro novo."
+            },
+            textoBotao: "Criar uma conta nova", url: urlCadastro, urlLogo: urlLogo,
+            tituloNota: "Não foi você?",
+            nota: "A exclusão exige a senha da conta. Se você não pediu isso, alguém tinha a sua senha: fale com o suporte do Wyvern.");
+
         private static CorpoDeEmail Montar(string preheader, string eyebrow, string titulo, string nome, string[] paragrafos,
             string textoBotao, string url, string urlLogo, string tituloNota, string nota)
         {
