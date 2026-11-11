@@ -10,6 +10,7 @@ using Wyvern.Application.DTOs.Auth;
 using Wyvern.Application.DTOs.Usuario;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Exceptions;
+using Wyvern.Domain.Regras;
 using Wyvern.Domain.Interfaces.Repositories;
 using BCrypt.Net;
 
@@ -51,7 +52,7 @@ namespace Wyvern.Application.Services
 
         public async Task RegisterAsync(RegisterDto dto)
         {
-            var email = dto.Email.Trim();
+            var email = EmailDaConta.Normalizar(dto.Email);
 
             // O hash é calculado sempre, antes de consultar o e-mail: o tempo da resposta não revela se a conta existe.
             var senhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha);
@@ -108,7 +109,7 @@ namespace Wyvern.Application.Services
         /// </summary>
         public async Task SolicitarRedefinicaoDeSenhaAsync(string email)
         {
-            var user = await _uof.UsuarioRepository.GetByEmailAsync(email.Trim());
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(EmailDaConta.Normalizar(email));
             if (user == null) return;
 
             if (user.EmailConfirmadoEm == null)
@@ -166,7 +167,7 @@ namespace Wyvern.Application.Services
 
         public async Task ReenviarConfirmacaoAsync(string email)
         {
-            var user = await _uof.UsuarioRepository.GetByEmailAsync(email.Trim());
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(EmailDaConta.Normalizar(email));
             if (user == null || user.EmailConfirmadoEm != null) return;
 
             // Um link por minuto, no máximo: o botão não vira um jeito de lotar a caixa de alguém.
@@ -194,7 +195,7 @@ namespace Wyvern.Application.Services
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto, string? dispositivo = null)
         {
-            var email = dto.Email.Trim();
+            var email = EmailDaConta.Normalizar(dto.Email);
 
             // Bloqueado: nem confere a senha, para o atacante não testar palpites durante o bloqueio.
             if (_limitador.TempoRestanteDoBloqueio(email) is { } espera)
@@ -289,7 +290,7 @@ namespace Wyvern.Application.Services
         {
             var user = await ConferirSenhaAtualAsync(usuarioId, senhaAtual);
 
-            var email = novoEmail.Trim();
+            var email = EmailDaConta.Normalizar(novoEmail);
             if (string.Equals(email, user.Email, StringComparison.OrdinalIgnoreCase))
                 throw new RegraNegocioException("Esse já é o e-mail da sua conta.");
 
