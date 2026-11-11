@@ -14,6 +14,12 @@ namespace Wyvern.Application.Services
         Task RegisterAsync(RegisterDto dto);
         Task ConfirmarEmailAsync(string token);
 
+        /// <summary>
+        /// Manda um link de confirmação novo para a conta que ainda não confirmou. Sempre termina sem erro, exista a conta
+        /// ou não; conta já confirmada e pedido repetido dentro de 1 minuto não recebem nada.
+        /// </summary>
+        Task ReenviarConfirmacaoAsync(string email);
+
         /// <summary>Sempre termina sem erro, exista a conta ou não; o link vai por e-mail.</summary>
         Task SolicitarRedefinicaoDeSenhaAsync(string email);
         Task RedefinirSenhaAsync(string token, string novaSenha);

@@ -164,12 +164,27 @@ namespace Wyvern.Application.Services
             hashSalvo != null && expiraEm != null && expiraEm > DateTime.UtcNow
             && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(hashSalvo), Encoding.ASCII.GetBytes(HashDoToken(token)));
 
-        // Link de confirmação, válido por 24 h.
+        public async Task ReenviarConfirmacaoAsync(string email)
+        {
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(email.Trim());
+            if (user == null || user.EmailConfirmadoEm != null) return;
+
+            // Um link por minuto, no máximo: o botão não vira um jeito de lotar a caixa de alguém.
+            var enviadoEm = user.TokenConfirmacaoExpiraEm - ValidadeDaConfirmacao;
+            if (enviadoEm > DateTime.UtcNow - IntervaloEntreReenvios) return;
+
+            await EnviarConfirmacaoAsync(user);
+        }
+
+        private static readonly TimeSpan ValidadeDaConfirmacao = TimeSpan.FromHours(24);
+        private static readonly TimeSpan IntervaloEntreReenvios = TimeSpan.FromMinutes(1);
+
+        // Link de confirmação, válido por 24 h. Um link novo invalida o anterior.
         private async Task EnviarConfirmacaoAsync(Usuario user)
         {
             var token = NovoToken(user.UsuarioId);
             user.TokenConfirmacaoHash = HashDoToken(token);
-            user.TokenConfirmacaoExpiraEm = DateTime.UtcNow.AddHours(24);
+            user.TokenConfirmacaoExpiraEm = DateTime.UtcNow + ValidadeDaConfirmacao;
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
@@ -196,7 +211,7 @@ namespace Wyvern.Application.Services
             _limitador.Zerar(email);
             // Só depois de a senha conferir: quem não tem a senha não descobre nada sobre a conta.
             if (user.EmailConfirmadoEm == null)
-                throw new RegraNegocioException("Confirme o seu e-mail para entrar. Enviamos um link para a sua caixa de entrada.");
+                throw new EmailNaoConfirmadoException();
 
             return await CriarRespostaAsync(user, Guid.NewGuid(), dispositivo);
         }
