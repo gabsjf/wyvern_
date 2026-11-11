@@ -1265,6 +1265,9 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<int>("Nivel")
                         .HasColumnType("integer");
 
+                    b.Property<int>("NivelLiberado")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Raca")
                         .IsRequired()
                         .HasColumnType("text");

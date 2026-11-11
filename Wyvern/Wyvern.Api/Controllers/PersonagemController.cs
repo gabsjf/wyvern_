@@ -117,6 +117,8 @@ namespace Wyvern.Api.Controllers
             {
                 personagemDto.TipoId = pBanco.TipoId;
                 personagemDto.PersonagemNpc = null;
+                // O que muda ao subir de nível só muda pela subida (ou pela correção do Mestre)
+                ProgressaoService.ProtegerCamposDeNivel(pBanco, personagemDto);
             }
 
             pBanco.Nome = personagemDto.Nome;
@@ -232,6 +234,69 @@ namespace Wyvern.Api.Controllers
             await _uof.PersonagemRepository.UpdatePersonagemAsync(pBanco);
             await _uof.CommitAsync();
             return Ok(_mapper.Map<PersonagemResponseDto>(pBanco));
+        }
+
+        /// <summary>O que muda no próximo nível (regras do D&D 2024) e se o personagem já pode subir. Dono ou Mestre.</summary>
+        [HttpGet("{id:int}/proximo-nivel")]
+        public async Task<ActionResult<ProximoNivelDto>> ProximoNivel(int id)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+            return Ok(ProgressaoService.Previa(personagem));
+        }
+
+        /// <summary>
+        /// Sobe um nível com as escolhas do jogador (PV fixo ou rolado, subclasse, melhoria de atributo ou talento).
+        /// Só quando o Mestre já liberou o nível (por XP ou por marco). Dono ou Mestre.
+        /// </summary>
+        [HttpPost("{id:int}/subir-nivel")]
+        public async Task<ActionResult<ResultadoSubidaDto>> SubirNivel(int id, SubirNivelDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+
+            var (pvGanhos, resumo) = ProgressaoService.Aplicar(personagem, dto);
+            var nivelNovo = personagem.PersonagemPlayer!.Nivel;
+            await _cronica.RegistrarAutomaticoAsync(personagem.CampanhaId, "Marco", $"{personagem.Nome} subiu para o nível {nivelNovo}", resumo);
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(new ResultadoSubidaDto
+            {
+                Personagem = _mapper.Map<PersonagemResponseDto>(personagem),
+                NivelNovo = nivelNovo,
+                PvGanhos = pvGanhos,
+                Resumo = resumo,
+            });
+        }
+
+        /// <summary>Só o Mestre: ajusta o XP e/ou libera um nível por marco.</summary>
+        [HttpPut("{id:int}/progressao")]
+        public async Task<ActionResult<PersonagemResponseDto>> AtualizarProgressao(int id, ProgressaoDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+            if (!await _campanhaAuth.IsMestreAsync(personagem.CampanhaId, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Só o Mestre da campanha libera níveis e dá XP.");
+            if (personagem.TipoId != 1 || personagem.PersonagemPlayer == null)
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Só personagens de jogador têm XP e nível.");
+
+            var player = personagem.PersonagemPlayer;
+            if (dto.Xp is { } xp)
+            {
+                if (xp < 0 || xp > 10_000_000) return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "XP inválido.");
+                player.Xp = xp;
+            }
+            if (dto.NivelLiberado is { } liberado)
+            {
+                if (liberado < 0 || liberado > RegrasDnd2024.NivelMaximo)
+                    return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "O nível liberado vai de 0 a 20.");
+                player.NivelLiberado = liberado;
+            }
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
         }
 
         /// <summary>

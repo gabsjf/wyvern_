@@ -24,5 +24,11 @@ namespace Wyvern.Domain.Entities
         public string? Antecedente { get; set; }
         public string? Subclasse { get; set; }
         public string? Tamanho { get; set; }
+
+        /// <summary>
+        /// Nível que o Mestre liberou por marco (sem depender do XP). O personagem pode subir até o maior
+        /// entre este valor e o nível que o XP alcança. Zero quando o Mestre não liberou nada por marco.
+        /// </summary>
+        public int NivelLiberado { get; set; }
     }
 }

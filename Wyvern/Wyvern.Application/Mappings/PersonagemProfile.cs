@@ -15,7 +15,9 @@ namespace Wyvern.Application.Mappings
             CreateMap<PersonagemCombate, PersonagemCombateResponseDto>().ReverseMap();
             CreateMap<PersonagemCombate, PersonagemCombateUpdateDto>().ReverseMap();
 
-            CreateMap<PersonagemPlayer, PersonagemPlayerResponseDto>().ReverseMap();
+            CreateMap<PersonagemPlayer, PersonagemPlayerResponseDto>()
+                .ForMember(d => d.NivelDisponivel, o => o.MapFrom(s => Wyvern.Application.Services.RegrasDnd2024.NivelDisponivel(s.Xp, s.NivelLiberado)))
+                .ReverseMap();
             CreateMap<PersonagemPlayer, PersonagemPlayerUpdateDto>().ReverseMap();
 
             CreateMap<PersonagemItem, PersonagemItemAddDto>().ReverseMap();
