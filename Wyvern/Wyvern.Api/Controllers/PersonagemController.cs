@@ -371,6 +371,39 @@ namespace Wyvern.Api.Controllers
         }
 
         /// <summary>
+        /// O jogador traz um herói que já tem (de outra campanha) para uma campanha de que participa, por exemplo ao entrar
+        /// por convite. Vai uma cópia: a ficha original continua na campanha antiga. A cópia chega descansada e com o mesmo
+        /// nível; a crônica da campanha nova registra a chegada para o Mestre ver e ajustar, se quiser.
+        /// </summary>
+        [HttpPost("{id:int}/trazer")]
+        public async Task<ActionResult<PersonagemResponseDto>> Trazer(int id, PersonagemTrazerDto dto)
+        {
+            // GetPersonagemAsync só devolve o que o usuário pode ver; aqui vale só o que é dele e é herói
+            var origem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (origem == null || origem.CriadoPorId != _currentUser.UserId)
+                return NotFound("Personagem não encontrado");
+            if (origem.TipoId != 1)
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Só heróis podem ser levados para outra campanha.");
+            if (origem.CampanhaId == dto.CampanhaId)
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Este personagem já está nesta campanha.");
+            if (!await _campanhaAuth.IsMembroAsync(dto.CampanhaId, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você só pode trazer personagens para campanhas de que participa.");
+
+            var copia = PersonagemClonador.Clonar(origem, dto.CampanhaId, origem.Nome, origem.CriadoPorId);
+            PersonagemClonador.PrepararParaNovaCampanha(copia);
+            await _uof.PersonagemRepository.CreatePersonagemAsync(copia);
+
+            var player = copia.PersonagemPlayer;
+            var quem = player == null ? "Um herói" : $"{player.Classe} de nível {player.Nivel}".Trim();
+            await _cronica.RegistrarAutomaticoAsync(dto.CampanhaId, "Outro", $"{copia.Nome} chegou à campanha",
+                $"{quem} trazido de outra campanha pelo jogador. O Mestre pode ajustar a ficha se o nível não combinar com a mesa.");
+            await _uof.CommitAsync();
+
+            var salvo = await _uof.PersonagemRepository.GetPersonagemAsync(copia.PersonagemId);
+            return Ok(_mapper.Map<PersonagemResponseDto>(salvo));
+        }
+
+        /// <summary>
         /// Muda só o estado de jogo da ficha (PV, condições, inspiração, espaços de magia...), sem reenviar a ficha inteira.
         /// Mesma regra de acesso do resto: dono ou Mestre da campanha.
         /// </summary>
