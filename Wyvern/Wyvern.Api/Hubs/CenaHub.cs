@@ -102,7 +102,7 @@ namespace Wyvern.Api.Hubs
             });
         }
 
-        /// <summary>Move o token para um quadrado.</summary> O servidor confere quem pode e ajusta ao que cabe no mapa.</summary>
+        /// <summary>Move o token para um quadrado. O servidor confere quem pode e ajusta ao que cabe no mapa.</summary>
         public async Task MoverToken(int campanhaId, int tokenId, int coluna, int linha)
         {
             var papel = await _campanhaAuth.ObterPapelAsync(campanhaId, UsuarioId);
@@ -126,18 +126,18 @@ namespace Wyvern.Api.Hubs
             if (!mestre && cena.SoNoTurno && !CenaRegras.NaVez(cena, token, combate))
                 throw new HubException("Não é a vez deste token.");
 
-            // deslocamento da ficha (ou o escrito no token): só conta dentro de um combate, por rodada
+            // deslocamento da ficha (ou o escrito no token): só conta dentro de um combate, por turno
             var porQuadrado = MovimentoRegras.MetrosPorQuadrado(cena);
             var metros = token.DeslocamentoMetros ?? MovimentoRegras.DaFicha(token.Personagem);
             var controla = cena.LimitarDeslocamento && combate != null && metros != null;
-            var carimbo = combate == null ? null : $"{combate.CombateId}:{combate.RodadaAtual}";
+            var carimbo = combate?.CarimboDoTurno();
             var gasto = controla && token.MovimentoTurno == carimbo ? token.MovimentoGasto : 0;
             var restante = controla ? Math.Max(0, MovimentoRegras.Quadrados(metros!.Value, porQuadrado) - gasto) : int.MaxValue;
 
             int? custo;
             if (mestre)
             {
-                // o Mestre vai aonde quiser, mas o que anda em combate também conta para a rodada
+                // o Mestre vai aonde quiser, mas o que anda em combate também conta para o turno
                 custo = controla
                     ? MovimentoRegras.Custo(cena, token.Tamanho, token.Coluna, token.Linha, destino.coluna, destino.linha, await _uof.CenaRepository.GetParedesAsync(token.CenaId))
                         ?? Math.Max(Math.Abs(destino.coluna - token.Coluna), Math.Abs(destino.linha - token.Linha))

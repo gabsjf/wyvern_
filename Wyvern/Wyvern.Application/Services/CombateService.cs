@@ -24,7 +24,7 @@ namespace Wyvern.Application.Services
             if (combate == null || combate.Participantes == null || !combate.Participantes.Any())
                 return combate;
 
-            var participantesSorted = combate.Participantes.OrderByDescending(p => p.Iniciativa).ToList();
+            var participantesSorted = Combate.Ordenar(combate.Participantes);
             int originalIndex = combate.TurnoAtualIndex;
             do
             {

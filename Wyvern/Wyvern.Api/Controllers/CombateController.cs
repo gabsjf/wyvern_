@@ -64,7 +64,7 @@ namespace Wyvern.Api.Controllers
             if (erro != null) return erro;
             if (combate!.Participantes == null) return Ok(new List<CombateParticipanteDto>());
 
-            var result = combate.Participantes.OrderByDescending(p => p.Iniciativa).Select(p => new CombateParticipanteDto
+            var result = Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes).Select(p => new CombateParticipanteDto
             {
                 ParticipanteId = p.ParticipanteId,
                 CombateId = p.CombateId,
@@ -95,7 +95,7 @@ namespace Wyvern.Api.Controllers
             // Order participants by iniciativa descending when fetching
             if (combate.Participantes != null)
             {
-                combate.Participantes = combate.Participantes.OrderByDescending(p => p.Iniciativa).ToList();
+                combate.Participantes = Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes);
             }
 
             return Ok(combate);
@@ -113,7 +113,7 @@ namespace Wyvern.Api.Controllers
 
             if (combate.Participantes != null)
             {
-                combate.Participantes = combate.Participantes.OrderByDescending(p => p.Iniciativa).ToList();
+                combate.Participantes = Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes);
             }
 
             return Ok(combate);

@@ -44,7 +44,7 @@ namespace Wyvern.Application.DTOs.Cena
         public int TamanhoCelula { get; set; } = 70;
 
         public int? SessaoId { get; set; }
-        public bool SoNoTurno { get; set; }
+        public bool SoNoTurno { get; set; } = true;
 
         /// <summary>Metros por quadrado (5 pés = 1,5 m).</summary>
         [Range(0.1, 100)]
@@ -266,11 +266,9 @@ namespace Wyvern.Application.DTOs.Cena
         public static bool NaVez(Domain.Entities.Cena cena, TokenCena token, Domain.Entities.Combate? combate)
         {
             if (!cena.SoNoTurno || combate?.Participantes == null || token.ParticipanteId == null) return true;
-            var ordem = combate.Participantes.OrderByDescending(p => p.Iniciativa).ToList();
             // um combatente que não está neste combate (o combate dele acabou) não tem vez a respeitar
-            return ordem.Count == 0 || ordem.All(p => p.ParticipanteId != token.ParticipanteId)
-                || (combate.TurnoAtualIndex >= 0 && combate.TurnoAtualIndex < ordem.Count
-                    && ordem[combate.TurnoAtualIndex].ParticipanteId == token.ParticipanteId);
+            if (combate.Participantes.All(p => p.ParticipanteId != token.ParticipanteId)) return true;
+            return combate.ParticipanteDaVez()?.ParticipanteId == token.ParticipanteId;
         }
 
         private static double Lado(double ax, double ay, double bx, double by, double cx, double cy) =>

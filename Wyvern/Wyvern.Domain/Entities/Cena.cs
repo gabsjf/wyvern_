@@ -33,13 +33,13 @@ namespace Wyvern.Domain.Entities
         public int? SessaoId { get; set; }
         public Sessao? Sessao { get; set; }
 
-        /// <summary>No combate, o jogador só move o token de quem está na vez.</summary>
-        public bool SoNoTurno { get; set; }
+        /// <summary>No combate, o jogador só move o token de quem está na vez (ligado nas cenas novas).</summary>
+        public bool SoNoTurno { get; set; } = true;
 
         /// <summary>Quantos metros vale um quadrado da grade (5 pés = 1,5 m no D&D).</summary>
         public double MetrosPorQuadrado { get; set; } = 1.5;
 
-        /// <summary>No combate, o jogador só anda o deslocamento da ficha por rodada.</summary>
+        /// <summary>No combate, o jogador só anda o deslocamento da ficha por turno.</summary>
         public bool LimitarDeslocamento { get; set; } = true;
 
         /// <summary>Muda a cada troca de imagem; serve de ETag para o navegador guardar o mapa.</summary>

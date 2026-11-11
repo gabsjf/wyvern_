@@ -337,7 +337,7 @@ namespace Wyvern.Api.Controllers
             var ligados = new List<int>();
             var proximo = 0;
 
-            foreach (var p in combate.Participantes.OrderByDescending(p => p.Iniciativa).Where(p => !jaNoMapa.Contains(p.ParticipanteId)))
+            foreach (var p in Combate.Ordenar(combate.Participantes).Where(p => !jaNoMapa.Contains(p.ParticipanteId)))
             {
                 // o personagem já está no mapa (colocado antes do combate): o token passa a representar o combatente
                 var existente = p.PersonagemId is { } pid
