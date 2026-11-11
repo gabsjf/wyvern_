@@ -1,6 +1,9 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Wyvern.Application.DTOs.Paginacao;
 using Wyvern.Application.DTOs.Personagem;
+using Wyvern.Application.Mappings;
+using Wyvern.Domain.Consultas;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
@@ -43,6 +46,23 @@ namespace Wyvern.Api.Controllers
 
             var personagensDto = _mapper.Map<List<PersonagemResponseDto>>(personagens);
             return Ok(personagensDto);
+        }
+
+        /// <summary>
+        /// O elenco paginado, por campanha e nome. <paramref name="tipo"/> é "herois" (padrão) ou "monstros" (NPCs e monstros).
+        /// Traz também as contagens das abas e de cada campanha, para a tela montar os filtros sem baixar tudo.
+        /// </summary>
+        [HttpGet("pagina")]
+        public async Task<ActionResult<PaginaDePersonagensDto>> GetPagina(
+            [FromQuery] int? pagina, [FromQuery] int? tamanho, [FromQuery] string? busca,
+            [FromQuery] string? tipo, [FromQuery] int? campanhaId)
+        {
+            var herois = tipo is null or "" or "herois";
+            if (!herois && tipo != "monstros")
+                return BadRequest(new { message = "Tipo deve ser \"herois\" ou \"monstros\"." });
+
+            var resultado = await _uof.ListagensRepository.PersonagensAsync(new PedidoDePagina(pagina, tamanho), busca, herois, campanhaId);
+            return Ok(ListagensMapper.ParaDto(resultado, _mapper));
         }
         [HttpGet("{id:int}")]
         public async Task<ActionResult<PersonagemResponseDto>> GetPersonagemById( int id)

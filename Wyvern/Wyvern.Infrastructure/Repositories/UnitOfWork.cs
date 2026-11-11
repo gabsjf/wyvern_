@@ -49,7 +49,10 @@ namespace Wyvern.Infrastructure.Repositories
             CombateRepository = new CombateRepository(_context);
             EventoCampanhaRepository = new EventoCampanhaRepository(_context);
             CenaRepository = new Wyvern.Infrastructure.Repositories.Cena.CenaRepository(_context);
+            ListagensRepository = new ListagensRepository(_context, _currentUserService);
         }
+
+        public IListagensRepository ListagensRepository { get; }
 
         public ICampanhaRepository CampanhaRepository { get; }
         public IItemRepository ItemRepository { get; }

@@ -28,6 +28,8 @@ namespace Wyvern.Domain.Interfaces.Repositories
         IPastaAnotacaoRepository PastaAnotacaoRepository { get; }
         IEventoCampanhaRepository EventoCampanhaRepository { get; }
         Wyvern.Domain.Interfaces.Repositories.Cena.ICenaRepository CenaRepository { get; }
+        /// <summary>Listas paginadas e o painel inicial.</summary>
+        IListagensRepository ListagensRepository { get; }
         Task CommitAsync();
 
     }
