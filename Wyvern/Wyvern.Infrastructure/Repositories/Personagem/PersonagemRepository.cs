@@ -52,6 +52,7 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .Include(p => p.PersonagemConjuracao)
                 .Include(p => p.PersonagemPericias!)
                     .ThenInclude(pp => pp.Pericia)
+                .Include(p => p.CriadoPor) // o PDF exportado traz o nome do jogador
                 .AsSplitQuery()
                 .Include(p => p.Campanha)
                 .FirstOrDefaultAsync(p => p.PersonagemId == id && p.Ativo && p.Campanha.Membros!.Any(m => m.UsuarioId == _currentUser.UserId && (p.CriadoPorId == _currentUser.UserId || m.Papel == PapelCampanha.Mestre)));

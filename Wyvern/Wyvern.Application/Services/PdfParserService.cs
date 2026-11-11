@@ -126,9 +126,10 @@ namespace Wyvern.Application.Services
                 "CP", "SP", "EP", "GP", "PP", "Equipment", "Features and Traits", "ProficienciesLang", "Backstory", "Feat+Traits",
                 "PersonalityTraits", "Ideals", "Bonds", "Flaws", "SpellcastingAbility 2",
                 "Wpn Name", "Wpn Name 2", "Wpn Name 3", "Wpn1 AtkBonus", "Wpn2 AtkBonus", "Wpn3 AtkBonus",
-                "Wpn1 Damage", "Wpn2 Damage", "Wpn3 Damage",
+                "Wpn1 Damage", "Wpn2 Damage", "Wpn3 Damage", "AttacksSpellcasting", "HD",
             };
-            nomes.AddRange(FichaPdfMapper.CamposAtributos.Select(x => x.Pontuacao));
+            // os dois campos de cada atributo: o leitor decide qual deles traz a pontuação
+            nomes.AddRange(FichaPdfMapper.CamposAtributos.SelectMany(x => new[] { x.Modificador, x.Pontuacao }));
             nomes.AddRange(FichaPdfMapper.Pericias.Select(x => x.Campo));
             nomes.AddRange(FichaPdfMapper.Salvaguardas.Select(x => x.Campo));
             nomes.AddRange(FichaPdfMapper.Salvaguardas.Select(x => x.Caixa));

@@ -16,6 +16,8 @@ namespace Wyvern.Application.Services
         private static readonly Regex Subclasse = new(@"^(?<classe>[^()]*?)\s*\((?<sub>[^)]+)\)\s*$", RegexOptions.Compiled);
         private static readonly Regex Dano = new(@"^\s*(?<dados>\d+d\d+)\s*(?<mod>[+-]\s*\d+)?\s*(?<tipo>.*)$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
         private static readonly Regex MaisMagias = new(@"\s*\(\+\d+ magias\)\s*$", RegexOptions.Compiled);
+        private static readonly Regex AtaqueEmTexto = new(@"^(?<nome>.+?)\s+(?<bonus>[+-]\s*\d+)\s*,\s*(?<dano>.+)$", RegexOptions.Compiled);
+        private static readonly Regex QuantidadeDeDados = new(@"^\s*(?<n>\d+)", RegexOptions.Compiled);
         private static readonly Regex Raridade = new(@"^(?<nome>.*?)\s*\((?<raridade>Comum|Incomum|Raro|Muito Raro|Lendário|Lendario|Artefato)\)\s*$", RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
         private static readonly string[] NomesAtributo = { "Forca", "Destreza", "Constituicao", "Inteligencia", "Sabedoria", "Carisma" };
@@ -53,10 +55,16 @@ namespace Wyvern.Application.Services
             };
 
             // ---- Atributos e salvaguardas ----
+            // Cada atributo tem dois campos (quadrado grande e oval); quem preencheu pode ter usado qualquer um para a pontuação.
+            int Atr(string codigo)
+            {
+                var (_, quadrado, oval) = FichaPdfMapper.CamposAtributos.First(x => x.Atributo == codigo);
+                return EscolherPontuacao(T(quadrado), T(oval));
+            }
             var a = new Atributo
             {
-                Forca = Pontuacao(T("STR")), Destreza = Pontuacao(T("DEX")), Constituicao = Pontuacao(T("CON")),
-                Inteligencia = Pontuacao(T("INT")), Sabedoria = Pontuacao(T("WIS")), Carisma = Pontuacao(T("CHA")),
+                Forca = Atr("for"), Destreza = Atr("des"), Constituicao = Atr("con"),
+                Inteligencia = Atr("int"), Sabedoria = Atr("sab"), Carisma = Atr("car"),
                 ProficienciaSalvaguardaForca = C("Check Box 11"), ProficienciaSalvaguardaDestreza = C("Check Box 18"),
                 ProficienciaSalvaguardaConstituicao = C("Check Box 19"), ProficienciaSalvaguardaInteligencia = C("Check Box 20"),
                 ProficienciaSalvaguardaSabedoria = C("Check Box 21"), ProficienciaSalvaguardaCarisma = C("Check Box 22"),
@@ -81,6 +89,7 @@ namespace Wyvern.Application.Services
                 Deslocamento = T("Speed"),
                 VidaMaxima = vidaMax, VidaAtual = vidaAtual, VidaTemporaria = N("HPTemp"),
                 DadoVidaMaximo = T("HDTotal") == "" ? null : T("HDTotal"),
+                DadoVidaGasto = DadosDeVidaGastos(T("HDTotal"), T("HD"), nivel),
                 InspiracaoHeroica = T("Inspiration") != "" && T("Inspiration") != "0",
                 ProficienciaBonus = bonusProf,
                 DeathSaveSucessos = Enumerable.Range(12, 3).Count(i => C($"Check Box {i}")),
@@ -114,6 +123,14 @@ namespace Wyvern.Application.Services
             {
                 if (T(nomes[i]) == "") continue;
                 p.PersonagemAtaques.Add(LerAtaque(T(nomes[i]), T(bonusCampos[i]), T(danoCampos[i]), pontuacoes, bonusProf));
+            }
+
+            // Do quarto ataque em diante a exportação escreve no quadro de texto, um por linha: "Adaga +5, 1d4+3 perfurante".
+            foreach (var linha in T("AttacksSpellcasting").Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var m = AtaqueEmTexto.Match(linha.Trim());
+                if (m.Success)
+                    p.PersonagemAtaques.Add(LerAtaque(m.Groups["nome"].Value.Trim(), m.Groups["bonus"].Value, m.Groups["dano"].Value, pontuacoes, bonusProf));
             }
 
             // ---- Equipamento: uma linha por item ----
@@ -203,7 +220,8 @@ namespace Wyvern.Application.Services
                 else caracteristicas.Add(bloco.Trim());
             }
             d.CaracteristicasClasse = string.Join("\n\n", caracteristicas);
-            if (string.IsNullOrWhiteSpace(d.Talentos)) d.Talentos = T("Feat+Traits") == "" ? null : T("Feat+Traits");
+            // Os talentos ficam na página 2; fichas exportadas antes desta versão os traziam num bloco "Talentos:" da página 1.
+            if (T("Feat+Traits") != "") d.Talentos = T("Feat+Traits");
 
             // Proficiências: linhas "Idiomas: ...", "Armaduras: leve, média", "Armas: ...", "Ferramentas: ..."
             foreach (var linha in T("ProficienciesLang").Replace("\r", "").Split('\n', StringSplitOptions.RemoveEmptyEntries))
@@ -229,14 +247,16 @@ namespace Wyvern.Application.Services
                 else historia.Add(bloco.Trim());
             }
 
-            // Se a ficha tem os quadros de personalidade, guarda no mesmo formato "Título: conteúdo" usado no resto do sistema.
-            var personalidade = new (string Titulo, string Valor)[]
+            // Se a ficha tem os quadros de personalidade, guarda no formato "Título: conteúdo" usado no resto do sistema,
+            // mantendo as quebras de linha (a exportação lê de volta cada seção para o seu quadro).
+            var personalidade = new (string Titulo, string? Valor)[]
             {
-                ("Traços", T("PersonalityTraits")), ("Ideais", T("Ideals")), ("Vínculos", T("Bonds")), ("Defeitos", T("Flaws")),
+                (HistoriaEmSecoes.Tracos, T("PersonalityTraits")), (HistoriaEmSecoes.Ideais, T("Ideals")),
+                (HistoriaEmSecoes.Vinculos, T("Bonds")), (HistoriaEmSecoes.Defeitos, T("Flaws")),
             };
             var texto = string.Join("\n\n", historia);
             d.HistoriaPersonalidade = personalidade.Any(x => x.Valor != "")
-                ? string.Join("\n", personalidade.Select(x => $"{x.Titulo}: {x.Valor}")) + $"\nHistória: {texto.Replace("\n", " ")}"
+                ? HistoriaEmSecoes.Montar(null, personalidade.Append((HistoriaEmSecoes.Historia, texto)).ToArray())
                 : texto;
 
             return d;
@@ -291,10 +311,50 @@ namespace Wyvern.Application.Services
             return m.Success && int.TryParse(m.Value.Replace(" ", ""), NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out var v) ? v : 0;
         }
 
-        private static int Pontuacao(string texto)
+        /// <summary>
+        /// Pontuação de um atributo a partir dos dois campos da ficha. A ficha oficial pede o modificador no quadrado grande
+        /// e a pontuação no oval, mas muita gente (e versões antigas da nossa exportação) faz o contrário. Vale como
+        /// pontuação o número sem sinal entre 1 e 30; com os dois assim, o que tem o outro como modificador.
+        /// Só com o modificador, reconstrói a pontuação (+3 → 16). Nada preenchido: 10.
+        /// </summary>
+        public static int EscolherPontuacao(string quadrado, string oval)
         {
-            var v = Inteiro(texto);
-            return v is >= 1 and <= 30 ? v : 10;
+            static bool ComSinal(string s) => s.TrimStart().StartsWith('+') || s.TrimStart().StartsWith('-');
+            static int? ComoPontuacao(string s)
+            {
+                if (string.IsNullOrWhiteSpace(s) || ComSinal(s)) return null;
+                var v = Inteiro(s);
+                return v is >= 1 and <= 30 ? v : null;
+            }
+
+            var noOval = ComoPontuacao(oval);
+            var noQuadrado = ComoPontuacao(quadrado);
+            if (noOval is int o && noQuadrado is int q)
+            {
+                if (Wyvern.Domain.Regras.RegrasDnd.Modificador(o) == q) return o;
+                if (Wyvern.Domain.Regras.RegrasDnd.Modificador(q) == o) return q;
+                return Math.Max(o, q); // modificadores vão até +10; na dúvida, o maior é a pontuação
+            }
+            if (noOval is int soOval) return soOval;
+            if (noQuadrado is int soQuadrado) return soQuadrado;
+
+            // só o modificador (com sinal, em qualquer um dos dois): a menor pontuação que dá esse modificador
+            var comSinal = new[] { quadrado, oval }.FirstOrDefault(s => !string.IsNullOrWhiteSpace(s) && ComSinal(s));
+            return comSinal != null ? Math.Clamp(10 + 2 * Inteiro(comSinal), 1, 30) : 10;
+        }
+
+        /// <summary>
+        /// Dados de vida gastos = total ("5d8" → 5; sem número, o nível) − os que restam no quadro "Hit Dice".
+        /// Quadro vazio: nenhum gasto.
+        /// </summary>
+        public static int DadosDeVidaGastos(string total, string restantes, int nivel)
+        {
+            if (string.IsNullOrWhiteSpace(restantes)) return 0;
+            var m = QuantidadeDeDados.Match(total ?? "");
+            var quantos = m.Success ? int.Parse(m.Groups["n"].Value, CultureInfo.InvariantCulture) : nivel;
+            var sobram = QuantidadeDeDados.Match(restantes);
+            if (!sobram.Success) return 0;
+            return Math.Clamp(quantos - int.Parse(sobram.Groups["n"].Value, CultureInfo.InvariantCulture), 0, quantos);
         }
 
         private static string NomeCapitalizado(string normalizado)
