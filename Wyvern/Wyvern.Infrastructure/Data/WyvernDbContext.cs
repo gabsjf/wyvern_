@@ -53,6 +53,8 @@ namespace Wyvern.Infrastructure.Data
         public DbSet<PersonagemReacao> PersonagemReacoes { get; set; }
         public DbSet<PersonagemAcaoLendaria> PersonagemAcoesLendarias { get; set; }
         public DbSet<PersonagemTracoEspecial> PersonagemTracosEspeciais { get; set; }
+        public DbSet<Mural> Murais { get; set; }
+        public DbSet<MuralImagem> MuralImagens { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -216,6 +218,14 @@ namespace Wyvern.Infrastructure.Data
                 .HasIndex(c => new { c.CampanhaId, c.Ordem });
             modelBuilder.Entity<CenaImagem>()
                 .HasOne(i => i.Cena).WithOne().HasForeignKey<CenaImagem>(i => i.CenaId).OnDelete(DeleteBehavior.Cascade);
+
+            // Murais: somem com a campanha; as imagens, com o mural
+            modelBuilder.Entity<Mural>()
+                .HasOne(m => m.Campanha).WithMany().HasForeignKey(m => m.CampanhaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Mural>().HasIndex(m => m.CampanhaId);
+            modelBuilder.Entity<MuralImagem>()
+                .HasOne(i => i.Mural).WithMany().HasForeignKey(i => i.MuralId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<MuralImagem>().HasIndex(i => i.MuralId);
             modelBuilder.Entity<Cena>().Property(c => c.MetrosPorQuadrado).HasDefaultValue(1.5);
             modelBuilder.Entity<Cena>().Property(c => c.LimitarDeslocamento).HasDefaultValue(true);
             modelBuilder.Entity<Cena>()

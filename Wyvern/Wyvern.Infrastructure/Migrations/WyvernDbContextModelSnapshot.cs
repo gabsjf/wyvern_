@@ -510,6 +510,75 @@ namespace Wyvern.Infrastructure.Migrations
                     b.ToTable("MarcadoresCena");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.Mural", b =>
+                {
+                    b.Property<int>("MuralId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("MuralId"));
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("CampanhaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("CriadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Versao")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MuralId");
+
+                    b.HasIndex("CampanhaId");
+
+                    b.ToTable("Murais");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.MuralImagem", b =>
+                {
+                    b.Property<int>("MuralImagemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("MuralImagemId"));
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<byte[]>("Dados")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("MuralId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("MuralImagemId");
+
+                    b.HasIndex("MuralId");
+
+                    b.ToTable("MuralImagens");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.ParedeCena", b =>
                 {
                     b.Property<int>("ParedeId")
@@ -1844,6 +1913,28 @@ namespace Wyvern.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Cena");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.Mural", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Campanha", "Campanha")
+                        .WithMany()
+                        .HasForeignKey("CampanhaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campanha");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.MuralImagem", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Mural", "Mural")
+                        .WithMany()
+                        .HasForeignKey("MuralId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Mural");
                 });
 
             modelBuilder.Entity("Wyvern.Domain.Entities.ParedeCena", b =>
