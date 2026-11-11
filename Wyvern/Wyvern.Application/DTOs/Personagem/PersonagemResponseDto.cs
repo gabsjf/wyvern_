@@ -8,8 +8,12 @@ namespace Wyvern.Application.DTOs.Personagem
         public string Nome { get; set; } = string.Empty;
         public string Descricao { get; set; } = string.Empty;
         public int CampanhaId { get; set; }
+        /// <summary>Nome da campanha (vem na listagem; nulo onde a campanha não foi carregada).</summary>
+        public string? CampanhaNome { get; set; }
         public int TipoId { get; set; }
         public int CriadoPorId { get; set; }
+        /// <summary>Nome de quem criou o personagem (o jogador dono, ou o Mestre nos NPCs e monstros). Vem na listagem.</summary>
+        public string? CriadoPorNome { get; set; }
         public DateTime CriadoEm { get; set; }
         public bool Ativo { get; set; }
         

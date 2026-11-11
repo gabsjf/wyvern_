@@ -8,7 +8,13 @@ namespace Wyvern.Application.Mappings
     {
         public PersonagemProfile()
         {
-            CreateMap<Personagem, PersonagemResponseDto>().ReverseMap();
+            // Os nomes da campanha e do dono são só de leitura: o caminho de volta nunca monta campanha nem usuário a partir deles.
+            CreateMap<Personagem, PersonagemResponseDto>()
+                .ForMember(d => d.CampanhaNome, o => o.MapFrom(s => s.Campanha != null ? s.Campanha.Nome : null))
+                .ForMember(d => d.CriadoPorNome, o => o.MapFrom(s => s.CriadoPor != null ? s.CriadoPor.Nome : null))
+                .ReverseMap()
+                .ForMember(s => s.Campanha, o => o.Ignore())
+                .ForMember(s => s.CriadoPor, o => o.Ignore());
             CreateMap<Personagem, PersonagemCreateDto>().ReverseMap();
             CreateMap<Personagem, PersonagemUpdateDto>().ReverseMap();
 

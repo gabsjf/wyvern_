@@ -27,6 +27,7 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .Include(p => p.PersonagemCombate)
                 .Include(p => p.PersonagemNpc) // a fórmula de PV dos monstros é usada na preparação do combate
                 .Include(p => p.Campanha)
+                .Include(p => p.CriadoPor) // o Mestre vê de quem é cada personagem
                 .Where(p => p.Ativo && p.Campanha.Membros!.Any(m => m.UsuarioId == _currentUser.UserId && (p.CriadoPorId == _currentUser.UserId || m.Papel == PapelCampanha.Mestre)))
                 .ToListAsync();
         }
