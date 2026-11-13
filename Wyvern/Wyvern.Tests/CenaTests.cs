@@ -210,8 +210,9 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         var personagem = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Estrangeiro", campanhaId = outra, tipoId = 1,
-            personagemPlayer = new { classe = "Mago", nivel = 1, raca = "Elfo" },
-            personagemCombate = new { vidaMaxima = 8, vidaAtual = 8, dadoVidaMaximo = "1d6" },
+            personagemPlayer = new { classe = "Mago", nivel = 1, raca = "Elfo", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 8, vidaAtual = 8, dadoVidaMaximo = "1d6", deslocamento = "9m" },
         });
         var personagemId = (await personagem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
 
@@ -289,8 +290,9 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         var personagem = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Thorin", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano" },
-            personagemCombate = new { vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10" },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10", deslocamento = "9m" },
         });
         var personagemId = (await personagem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
         var antes = await CriarTokenAsync(mestre, campanhaId, cenaId, Token("Thorin", coluna: 4, linha: 4, personagemId: personagemId));
@@ -1011,8 +1013,9 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         var personagem = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Lyra", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano" },
-            personagemCombate = new { vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10", deslocamento },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10", deslocamento },
         });
         var personagemId = (await personagem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
         var tokenId = (await CriarTokenAsync(mestre, campanhaId, cenaId, Token("Lyra", 0, 0, personagemId: personagemId, controladoPorId: sessaoJogador.UsuarioId))).GetProperty("tokenId").GetInt32();

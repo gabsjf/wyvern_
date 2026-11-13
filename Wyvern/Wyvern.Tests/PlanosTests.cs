@@ -18,8 +18,7 @@ public class WyvernApiFactorySemBeta : WyvernApiFactory
 }
 
 /// <summary>
-/// Tipos de conta e planos fora do beta: conta Jogador só entra por convite; Mestre Free cria 1 campanha com até 2
-/// jogadores; o admin muda o plano; nada que já existe some quando o plano fica menor.
+/// Planos fora do beta: toda conta nasce no Free, que cria 1 campanha com até 2 jogadores; o admin muda o plano; nada que já existe some quando o plano fica menor.
 /// </summary>
 public class PlanosTests : IClassFixture<WyvernApiFactorySemBeta>
 {
@@ -27,13 +26,13 @@ public class PlanosTests : IClassFixture<WyvernApiFactorySemBeta>
 
     public PlanosTests(WyvernApiFactorySemBeta factory) => _factory = factory;
 
-    private record Conta(string Tipo, string Plano, bool Beta, bool PodeCriarCampanha, int? MaxCampanhas, int? MaxJogadoresPorCampanha, int CampanhasCriadas);
+    private record Conta(string Plano, bool Beta, bool PodeCriarCampanha, int? MaxCampanhas, int? MaxJogadoresPorCampanha, int CampanhasCriadas);
     private record Perfil(Conta Conta);
 
     private static readonly JsonSerializerOptions Web = new(JsonSerializerDefaults.Web);
 
-    private Task<(HttpClient client, WyvernApiFactory.Sessao sessao)> MestreAsync() => _factory.NovoUsuarioAsync("Mestre");
-    private Task<(HttpClient client, WyvernApiFactory.Sessao sessao)> JogadorAsync() => _factory.NovoUsuarioAsync("Jogador");
+    private Task<(HttpClient client, WyvernApiFactory.Sessao sessao)> MestreAsync() => _factory.NovoUsuarioAsync();
+    private Task<(HttpClient client, WyvernApiFactory.Sessao sessao)> JogadorAsync() => _factory.NovoUsuarioAsync();
 
     private static Task<HttpResponseMessage> CriarCampanhaAsync(HttpClient client, string nome = "Mesa") =>
         client.PostAsJsonAsync("/Campanha", new { nome, sistema = "D&D 5e" });
@@ -84,29 +83,19 @@ public class PlanosTests : IClassFixture<WyvernApiFactorySemBeta>
     }
 
     [Fact]
-    public async Task Fora_do_beta_papel_invalido_no_cadastro_vira_jogador()
+    public async Task Toda_conta_nova_e_free_e_ja_pode_criar_a_sua_campanha()
     {
-        var (_, sessao) = await _factory.NovoUsuarioAsync(papel: "Admin");
-        Assert.Equal("Jogador", sessao.Papel);
-    }
+        // WYV-09: sem tipo de conta. Quem se cadastra cai no Free e o limite vem só do plano.
+        var (nova, _) = await JogadorAsync();
 
-    [Fact]
-    public async Task Conta_jogador_nao_cria_campanha_ate_virar_mestre()
-    {
-        var (jogador, _) = await JogadorAsync();
-
-        var conta = await ContaAsync(jogador);
-        Assert.Equal("Jogador", conta.Tipo);
-        Assert.False(conta.PodeCriarCampanha);
-        Assert.Equal(HttpStatusCode.Forbidden, (await CriarCampanhaAsync(jogador)).StatusCode);
-
-        var virou = await jogador.PostAsync("/Usuario/me/virar-mestre", null);
-        Assert.Equal(HttpStatusCode.OK, virou.StatusCode);
-
-        conta = await ContaAsync(jogador);
-        Assert.Equal("Mestre", conta.Tipo);
+        var conta = await ContaAsync(nova);
         Assert.Equal("Free", conta.Plano);
-        Assert.Equal(HttpStatusCode.Created, (await CriarCampanhaAsync(jogador)).StatusCode);
+        Assert.True(conta.PodeCriarCampanha);
+        Assert.Equal(1, conta.MaxCampanhas);
+        Assert.Equal(HttpStatusCode.Created, (await CriarCampanhaAsync(nova)).StatusCode);
+
+        // o antigo "virar Mestre" não existe mais
+        Assert.False((await nova.PostAsync("/Usuario/me/virar-mestre", null)).IsSuccessStatusCode);
     }
 
     [Fact]
@@ -210,7 +199,7 @@ public class PlanosTests : IClassFixture<WyvernApiFactorySemBeta>
     }
 
     [Fact]
-    public async Task Admin_tornar_jogador_em_mestre_ao_dar_um_plano()
+    public async Task Admin_da_um_plano_e_os_limites_mudam_na_hora()
     {
         var (jogador, sessao) = await JogadorAsync();
         var admin = await AdminAsync();
@@ -218,8 +207,8 @@ public class PlanosTests : IClassFixture<WyvernApiFactorySemBeta>
         await admin.PutAsJsonAsync($"/Admin/usuarios/{sessao.UsuarioId}/plano", new { plano = "Vip" });
 
         var conta = await ContaAsync(jogador);
-        Assert.Equal("Mestre", conta.Tipo);
         Assert.Equal("Vip", conta.Plano);
+        Assert.Equal(10, conta.MaxCampanhas);
     }
 
     [Fact]
@@ -263,8 +252,9 @@ public class PlanosTests : IClassFixture<WyvernApiFactorySemBeta>
         var criado = await jogador.PostAsJsonAsync("/Personagem", new
         {
             nome = "Quer ser NPC", campanhaId, tipoId = 2,
-            personagemPlayer = new { classe = "Mago", nivel = 1, raca = "Elfo" },
-            personagemCombate = new { vidaMaxima = 8, vidaAtual = 8, dadoVidaMaximo = "1d6" },
+            personagemPlayer = new { classe = "Mago", nivel = 1, raca = "Elfo", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 8, vidaAtual = 8, dadoVidaMaximo = "1d6", deslocamento = "9m" },
         });
 
         Assert.True(criado.IsSuccessStatusCode, await criado.Content.ReadAsStringAsync());
@@ -280,12 +270,11 @@ public class PlanosNoBetaTests : IClassFixture<WyvernApiFactory>
     public PlanosNoBetaTests(WyvernApiFactory factory) => _factory = factory;
 
     [Fact]
-    public async Task No_beta_quem_se_cadastra_como_jogador_vira_mestre_sem_limites()
+    public async Task No_beta_qualquer_conta_cria_campanhas_sem_limite()
     {
-        var (conta, _) = await _factory.NovoUsuarioAsync("Jogador");
+        var (conta, _) = await _factory.NovoUsuarioAsync();
 
         var perfil = await conta.GetFromJsonAsync<JsonElement>("/Usuario/me");
-        Assert.Equal("Mestre", perfil.GetProperty("conta").GetProperty("tipo").GetString());
         Assert.True(perfil.GetProperty("conta").GetProperty("beta").GetBoolean());
 
         for (var i = 0; i < 3; i++)
@@ -302,7 +291,7 @@ public class PlanosNoBetaTests : IClassFixture<WyvernApiFactory>
 
         for (var i = 0; i < 4; i++)
         {
-            var (jogador, _) = await _factory.NovoUsuarioAsync("Jogador");
+            var (jogador, _) = await _factory.NovoUsuarioAsync();
             Assert.Equal(HttpStatusCode.OK, (await jogador.PostAsync($"/Campanha/join/{token}", null)).StatusCode);
         }
     }

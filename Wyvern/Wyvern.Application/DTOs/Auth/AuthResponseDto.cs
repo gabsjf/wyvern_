@@ -16,10 +16,9 @@ namespace Wyvern.Application.DTOs.Auth
         /// <summary>Validade do refresh token; só serve para a API gravar o cookie e nunca é serializada.</summary>
         [JsonIgnore]
         public DateTime RefreshExpiraEm { get; set; }
-        public string Papel { get; set; }
         /// <summary>0 = sem foto; o front usa como versão na URL da foto.</summary>
         public int FotoVersao { get; set; }
-        /// <summary>Conta Mestre com vaga no plano (ou qualquer conta no beta): o front mostra o botão "Nova campanha".</summary>
+        /// <summary>Conta com vaga no plano (ou qualquer conta no beta): o front mostra o botão "Nova campanha".</summary>
         public bool PodeCriarCampanha { get; set; }
     }
 }

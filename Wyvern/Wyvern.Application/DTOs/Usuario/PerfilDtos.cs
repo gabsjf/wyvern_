@@ -11,7 +11,6 @@ namespace Wyvern.Application.DTOs.Usuario
         public string Email { get; set; } = string.Empty;
         /// <summary>E-mail novo aguardando o clique no link; nulo se não há troca pendente.</summary>
         public string? EmailPendente { get; set; }
-        public string Papel { get; set; } = "Jogador";
         public DateTime CriadoEm { get; set; }
         /// <summary>0 = sem foto.</summary>
         public int FotoVersao { get; set; }

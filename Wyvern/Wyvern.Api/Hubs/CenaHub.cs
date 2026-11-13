@@ -169,5 +169,27 @@ namespace Wyvern.Api.Hubs
             var grupo = token.Oculto ? GrupoDoMestre(campanhaId) : GrupoDaMesa(campanhaId);
             await Clients.Group(grupo).SendAsync("TokenMovido", new { token.TokenId, token.CenaId, token.Coluna, token.Linha, token.MovimentoGasto, token.MovimentoTurno });
         }
+
+        /// <summary>
+        /// Gira a miniatura do token (para onde ela olha). Quem pode mover pode girar, a qualquer hora: virar-se não gasta
+        /// deslocamento nem espera a vez.
+        /// </summary>
+        public async Task GirarToken(int campanhaId, int tokenId, double rotacao)
+        {
+            var papel = await _campanhaAuth.ObterPapelAsync(campanhaId, UsuarioId);
+            if (papel == null || UsuarioId is not { } usuarioId) throw new HubException("Campanha não encontrada.");
+
+            var token = await _uof.CenaRepository.GetTokenDaCampanhaAsync(campanhaId, tokenId);
+            if (token?.Cena == null || (papel != PapelCampanha.Mestre && token.Oculto))
+                throw new HubException("Token não encontrado.");
+            if (!CenaRegras.PodeMover(token, papel.Value, usuarioId))
+                throw new HubException("Você não pode girar este token.");
+
+            token.Rotacao = CenaRegras.Angulo(rotacao);
+            await _uof.CommitAsync();
+
+            var grupo = token.Oculto ? GrupoDoMestre(campanhaId) : GrupoDaMesa(campanhaId);
+            await Clients.Group(grupo).SendAsync("TokenGirado", new { token.TokenId, token.CenaId, token.Rotacao });
+        }
     }
 }

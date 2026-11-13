@@ -98,6 +98,8 @@ namespace Wyvern.Application.DTOs.Cena
         public bool RestaurarMovimento { get; set; }
         public int? PersonagemId { get; set; }
         public int? ParticipanteId { get; set; }
+        /// <summary>Miniatura 3D só deste token; nula usa a do personagem.</summary>
+        public int? ModeloId { get; set; }
         public int? ControladoPorId { get; set; }
     }
 
@@ -109,6 +111,8 @@ namespace Wyvern.Application.DTOs.Cena
         public int Coluna { get; set; }
         public int Linha { get; set; }
         public int Tamanho { get; set; }
+        /// <summary>Para onde a miniatura olha, em graus (ver TokenCena.Rotacao).</summary>
+        public double Rotacao { get; set; }
         public string Cor { get; set; } = "ouro";
         public bool Inimigo { get; set; }
         public bool Oculto { get; set; }
@@ -125,6 +129,10 @@ namespace Wyvern.Application.DTOs.Cena
         public int? PersonagemId { get; set; }
         public int? ParticipanteId { get; set; }
         public int? ControladoPorId { get; set; }
+        /// <summary>Miniatura escolhida no próprio token (nula = herda do personagem).</summary>
+        public int? ModeloId { get; set; }
+        /// <summary>A miniatura que vale na visão 3D: a do token, senão a do personagem.</summary>
+        public int? MiniaturaId { get; set; }
 
         /// <summary>Usuários (fora o Mestre) que podem mover o token: quem controla e o dono do personagem.</summary>
         public int[] DonosIds { get; set; } = [];
@@ -133,10 +141,11 @@ namespace Wyvern.Application.DTOs.Cena
 
         public static TokenCenaDto De(TokenCena t) => new()
         {
-            TokenId = t.TokenId, CenaId = t.CenaId, Nome = t.Nome, Coluna = t.Coluna, Linha = t.Linha, Tamanho = t.Tamanho,
+            TokenId = t.TokenId, CenaId = t.CenaId, Nome = t.Nome, Coluna = t.Coluna, Linha = t.Linha, Tamanho = t.Tamanho, Rotacao = t.Rotacao,
             Cor = t.Cor, Inimigo = t.Inimigo, Oculto = t.Oculto, Visao = t.Visao, ImagemVersao = t.ImagemVersao, DeslocamentoManual = t.DeslocamentoMetros, DeslocamentoDaFicha = DaFicha(t),
             DeslocamentoMetros = t.DeslocamentoMetros ?? DaFicha(t), MovimentoGasto = t.MovimentoGasto, MovimentoTurno = t.MovimentoTurno, PersonagemId = t.PersonagemId,
             ParticipanteId = t.ParticipanteId, ControladoPorId = t.ControladoPorId, DonosIds = CenaRegras.Donos(t),
+            ModeloId = t.ModeloId, MiniaturaId = t.ModeloId ?? t.Personagem?.ModeloId,
         };
     }
 
@@ -255,6 +264,9 @@ namespace Wyvern.Application.DTOs.Cena
         }
 
         /// <summary>O Mestre move qualquer token; o jogador só os visíveis dele, na cena que está em jogo.</summary>
+        /// <summary>Qualquer ângulo vira 0 a 360 (e um valor inválido, 0).</summary>
+        public static double Angulo(double graus) => double.IsFinite(graus) ? ((graus % 360) + 360) % 360 : 0;
+
         public static bool PodeMover(TokenCena t, PapelCampanha papel, int usuarioId) =>
             papel == PapelCampanha.Mestre
             || (!t.Oculto && t.Cena is { Ativa: true } && Donos(t).Contains(usuarioId));

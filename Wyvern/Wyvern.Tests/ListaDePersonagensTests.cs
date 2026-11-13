@@ -12,11 +12,11 @@ public class ListaDePersonagensTests : IClassFixture<WyvernApiFactory>
     public ListaDePersonagensTests(WyvernApiFactory factory) => _factory = factory;
 
     /// <summary>Um usuário com nome escolhido (o NovoUsuarioAsync chama todo mundo de "Teste").</summary>
-    private async Task<(HttpClient cliente, WyvernApiFactory.Sessao sessao)> UsuarioAsync(string nome, string? papel = "Mestre")
+    private async Task<(HttpClient cliente, WyvernApiFactory.Sessao sessao)> UsuarioAsync(string nome)
     {
         var cliente = _factory.CreateClient();
         cliente.DefaultRequestHeaders.Add("X-Wyvern-Client", "native");
-        var resposta = await _factory.CadastrarEEntrarAsync(cliente, $"{Guid.NewGuid():N}@teste.com", nome, papel: papel);
+        var resposta = await _factory.CadastrarEEntrarAsync(cliente, $"{Guid.NewGuid():N}@teste.com", nome);
         resposta.EnsureSuccessStatusCode();
         var sessao = (await resposta.Content.ReadFromJsonAsync<WyvernApiFactory.Sessao>())!;
         cliente.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", sessao.Token);
@@ -35,7 +35,8 @@ public class ListaDePersonagensTests : IClassFixture<WyvernApiFactory>
         var resposta = await dono.PostAsJsonAsync("/Personagem", new
         {
             nome, campanhaId, tipoId,
-            personagemCombate = new { vidaMaxima = 10, vidaAtual = 10, classeArmadura = 12, condicoes = "" },
+            personagemPlayer = Fichas.Origem, atributo = Fichas.Atributos, personagemNpc = Fichas.BlocoSe(tipoId),
+            personagemCombate = new { vidaMaxima = 10, vidaAtual = 10, classeArmadura = 12, condicoes = "", deslocamento = "9m" },
         });
         resposta.EnsureSuccessStatusCode();
     }
@@ -44,7 +45,7 @@ public class ListaDePersonagensTests : IClassFixture<WyvernApiFactory>
     public async Task O_mestre_ve_a_campanha_e_o_dono_de_cada_personagem()
     {
         var (mestre, _) = await UsuarioAsync("Mestra Iara");
-        var (jogador, _) = await UsuarioAsync("Bruno", papel: "Jogador");
+        var (jogador, _) = await UsuarioAsync("Bruno");
         var estrada = await CriarCampanhaAsync(mestre, "A Estrada Perdida");
         var torre = await CriarCampanhaAsync(mestre, "Torre de Marfim");
 

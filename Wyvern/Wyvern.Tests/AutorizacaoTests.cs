@@ -28,12 +28,20 @@ public class AutorizacaoTests : IClassFixture<WyvernApiFactory>
     }
 
     [Fact]
-    public async Task Cadastro_ignora_papel_invalido_enviado_pelo_cliente()
+    public async Task Cadastro_ignora_papel_enviado_pelo_cliente_e_a_conta_nao_tem_tipo()
     {
-        var (_, sessao) = await _factory.NovoUsuarioAsync(papel: "Admin");
+        // WYV-09: não há mais tipo de conta. Um "papel" mandado por um cliente antigo é só ignorado.
+        var client = _factory.CreateClient();
+        client.DefaultRequestHeaders.Add("X-Wyvern-Client", "native");
+        var email = $"{Guid.NewGuid():N}@teste.com";
+        var cadastro = await client.PostAsJsonAsync("/Auth/register", new { nome = "Teste", email, senha = "senha123", papel = "Admin" });
+        Assert.True(cadastro.IsSuccessStatusCode);
+        (await client.PostAsJsonAsync("/Auth/confirmar-email", new { token = _factory.TokenDeConfirmacao(email) })).EnsureSuccessStatusCode();
+        var login = await (await client.PostAsJsonAsync("/Auth/login", new { email, senha = "senha123" })).Content.ReadFromJsonAsync<JsonElement>();
 
-        // No beta toda conta é Mestre; fora dele o papel inválido vira Jogador (PlanosTests).
-        Assert.Equal("Mestre", sessao.Papel);
+        Assert.False(login.TryGetProperty("papel", out _));
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(login.GetProperty("token").GetString());
+        Assert.DoesNotContain(jwt.Claims, c => c.Type == "role");
     }
 
     [Fact]
@@ -77,7 +85,7 @@ public class AutorizacaoTests : IClassFixture<WyvernApiFactory>
     public async Task Jogador_da_campanha_nao_pode_excluir_nem_criar_sessao()
     {
         var (mestre, _) = await _factory.NovoUsuarioAsync();
-        var (jogador, _) = await _factory.NovoUsuarioAsync(papel: "Mestre"); // papel global não concede nada
+        var (jogador, _) = await _factory.NovoUsuarioAsync();
         var campanhaId = await CriarCampanhaAsync(mestre);
 
         var convite = await (await mestre.PostAsync($"/Campanha/{campanhaId}/generate-invite", null))

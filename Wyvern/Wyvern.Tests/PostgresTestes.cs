@@ -105,8 +105,8 @@ public class MigrationsPostgresTests
 
         // 4) As restriÃ§Ãµes passam a valer de fato.
         await Assert.ThrowsAsync<PostgresException>(() => ExecutarAsync($@"
-            INSERT INTO {Schema}.""Usuario"" (""Nome"", ""Email"", ""SenhaHash"", ""Papel"", ""CriadoEm"", ""Ativo"")
-            VALUES ('Dup', 'm@t.com', 'x', 'Jogador', now(), true);"));
+            INSERT INTO {Schema}.""Usuario"" (""Nome"", ""Email"", ""SenhaHash"", ""CriadoEm"", ""Ativo"")
+            VALUES ('Dup', 'm@t.com', 'x', now(), true);"));
 
         // 5) Rodar de novo Ã© inofensivo.
         await using (var db = NovoContexto())

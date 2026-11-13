@@ -44,8 +44,10 @@ public class ListagensTests : IClassFixture<WyvernApiFactory>
         var resposta = await cliente.PostAsJsonAsync("/Personagem", new
         {
             nome, campanhaId, tipoId, descricao,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 1, raca = "Humano" },
-            personagemCombate = new { vidaMaxima = 10, vidaAtual = 10, dadoVidaMaximo = "1d10" },
+            personagemNpc = Fichas.BlocoSe(tipoId),
+            personagemPlayer = new { classe = "Guerreiro", nivel = 1, raca = "Humano", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 10, vidaAtual = 10, dadoVidaMaximo = "1d10", deslocamento = "9m" },
         });
         Assert.True(resposta.IsSuccessStatusCode, await resposta.Content.ReadAsStringAsync());
         return (await resposta.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();

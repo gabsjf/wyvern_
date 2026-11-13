@@ -174,8 +174,8 @@ public class ProgressaoApiTests : IClassFixture<WyvernApiFactory>
         var criado = await jogador.PostAsJsonAsync("/Personagem", new
         {
             nome = "Thorin", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 1, raca = "Anão", alinhamento = "" },
-            personagemCombate = new { vidaMaxima = 12, vidaAtual = 12, classeArmadura = 16, proficienciaBonus = 2, dadoVidaMaximo = "1d10" },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 1, raca = "Anão", alinhamento = "", antecedente = "Soldado", subclasse = "Campeão" },
+            personagemCombate = new { vidaMaxima = 12, vidaAtual = 12, classeArmadura = 16, proficienciaBonus = 2, dadoVidaMaximo = "1d10", deslocamento = "9m" },
             atributo = new { forca = 16, destreza = 12, constituicao = 14, inteligencia = 10, sabedoria = 10, carisma = 8 },
         });
         criado.EnsureSuccessStatusCode();
@@ -225,7 +225,7 @@ public class ProgressaoApiTests : IClassFixture<WyvernApiFactory>
         {
             personagemId = id, nome = "Thorin Escudo", descricao = "", tipoId = 1,
             personagemPlayer = new { personagemId = id, classe = "Mago", raca = "Anão", nivel = 9, xp = 99999, alinhamento = "Bom" },
-            personagemCombate = new { personagemId = id, vidaMaxima = 200, vidaAtual = 150, classeArmadura = 18, proficienciaBonus = 6, dadoVidaMaximo = "9d10" },
+            personagemCombate = new { personagemId = id, vidaMaxima = 200, vidaAtual = 150, classeArmadura = 18, proficienciaBonus = 6, dadoVidaMaximo = "9d10", deslocamento = "9m" },
             atributo = new { personagemId = id, forca = 20, destreza = 20, constituicao = 20, inteligencia = 20, sabedoria = 20, carisma = 20 },
             personagemDetalhes = new { personagemId = id, historiaPersonalidade = historia },
         };

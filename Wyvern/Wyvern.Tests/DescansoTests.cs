@@ -32,8 +32,9 @@ public class DescansoTests : IClassFixture<WyvernApiFactory>
         {
             nome = "Thorin", campanhaId, tipoId = 1,
             criadoPorId = 1, // a tela de criação mandava um valor fixo; o servidor tem que ignorá-lo
-            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Anão" },
-            personagemCombate = new { vidaMaxima = 40, vidaAtual = 10, classeArmadura = 16, dadoVidaMaximo = "5d10", dadoVidaGasto = 3, vidaTemporaria = 5, deathSaveFalhas = 2 },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Anão", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { vidaMaxima = 40, vidaAtual = 10, classeArmadura = 16, dadoVidaMaximo = "5d10", dadoVidaGasto = 3, vidaTemporaria = 5, deathSaveFalhas = 2, deslocamento = "9m" },
             personagemConjuracao = new { atributoConjuracao = "Inteligencia", slotsNivel1Max = 4, slotsNivel1Atual = 1 },
         });
         resposta.EnsureSuccessStatusCode();

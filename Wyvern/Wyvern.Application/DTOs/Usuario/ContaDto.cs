@@ -5,12 +5,10 @@ namespace Wyvern.Application.DTOs.Usuario
     /// <summary>Tipo de conta, plano e limites de quem está logado (cartão "Plano" do perfil).</summary>
     public class ContaDto
     {
-        /// <summary>"Mestre" ou "Jogador".</summary>
-        public string Tipo { get; set; } = "Jogador";
-        /// <summary>Chave do plano ("Free", "Standard"...); só vale para conta Mestre.</summary>
+        /// <summary>Chave do plano ("Free", "Standard"...).</summary>
         public string Plano { get; set; } = "Free";
         public string NomePlano { get; set; } = "Free";
-        /// <summary>Durante o beta toda conta tem acesso completo de Mestre, sem limites.</summary>
+        /// <summary>Durante o beta toda conta tem acesso completo, sem limites.</summary>
         public bool Beta { get; set; }
         public bool PodeCriarCampanha { get; set; }
         /// <summary>Por que não pode criar campanha agora; nulo quando pode.</summary>

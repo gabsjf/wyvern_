@@ -51,10 +51,12 @@ namespace Wyvern.Infrastructure.Repositories
             CenaRepository = new Wyvern.Infrastructure.Repositories.Cena.CenaRepository(_context);
             ListagensRepository = new ListagensRepository(_context, _currentUserService);
             MuralRepository = new MuralRepository(_context);
+            Modelo3dRepository = new Modelo3dRepository(_context);
         }
 
         public IListagensRepository ListagensRepository { get; }
         public IMuralRepository MuralRepository { get; }
+        public IModelo3dRepository Modelo3dRepository { get; }
 
         public ICampanhaRepository CampanhaRepository { get; }
         public IItemRepository ItemRepository { get; }

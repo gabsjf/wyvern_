@@ -65,8 +65,6 @@ namespace Wyvern.Application.Services
                     Nome = dto.Nome.Trim(),
                     Email = email,
                     SenhaHash = senhaHash,
-                    // Tipo de conta: no beta, todo mundo é Mestre.
-                    Papel = _planos.TipoNoCadastro(dto.Papel),
                     Plano = PlanosOptions.Gratuito,
                     CriadoEm = DateTime.Now,
                     Ativo = true
@@ -275,8 +273,13 @@ namespace Wyvern.Application.Services
         public async Task TrocarSenhaAsync(int usuarioId, Guid? sessaoAtual, string senhaAtual, string novaSenha)
         {
             var user = await ConferirSenhaAtualAsync(usuarioId, senhaAtual);
+            if (novaSenha == senhaAtual)
+                throw new RegraNegocioException("A nova senha precisa ser diferente da atual.");
 
             user.SenhaHash = BCrypt.Net.BCrypt.HashPassword(novaSenha);
+            // Um link de "esqueci a senha" pedido antes da troca não vale mais.
+            user.TokenRedefinicaoHash = null;
+            user.TokenRedefinicaoExpiraEm = null;
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
@@ -284,6 +287,10 @@ namespace Wyvern.Application.Services
             var agora = DateTime.UtcNow;
             foreach (var familiaId in await _uof.RefreshTokenRepository.RevogarOutrasAsync(user.UsuarioId, sessaoAtual ?? Guid.Empty, agora))
                 _sessoes.Invalidar(familiaId);
+
+            // Aviso ao dono: se não foi ele, o botão leva direto a criar outra senha (o que derruba todas as sessões).
+            var corpo = ModeloDeEmail.SenhaAlterada(user.Nome, $"{_urlFront}/esqueci-senha", UrlLogo);
+            await _email.EnviarAsync(user.Email, "A senha da sua conta foi alterada - Wyvern", corpo.Texto, corpo.Html);
         }
 
         public async Task SolicitarTrocaDeEmailAsync(int usuarioId, string novoEmail, string senhaAtual)
@@ -433,7 +440,6 @@ namespace Wyvern.Application.Services
             user.TokenTrocaEmailHash = null;
             user.TokenTrocaEmailExpiraEm = null;
             user.FotoVersao = 0;
-            user.Papel = PlanoService.Jogador;
             user.Plano = PlanosOptions.Gratuito;
             await _uof.CommitAsync();
 
@@ -511,7 +517,6 @@ namespace Wyvern.Application.Services
             AdicionarSePresente(claims, usuario, ClaimTypes.NameIdentifier, "nameid");
             AdicionarSePresente(claims, usuario, ClaimTypes.Name, "unique_name");
             AdicionarSePresente(claims, usuario, ClaimTypes.Email, "email");
-            AdicionarSePresente(claims, usuario, "role", "role");
             AdicionarSePresente(claims, usuario, "admin", "admin");
             AdicionarSePresente(claims, usuario, SidClaim, SidClaim);
 
@@ -556,7 +561,6 @@ namespace Wyvern.Application.Services
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
-                Papel = user.Papel,
                 FotoVersao = user.FotoVersao,
                 PodeCriarCampanha = (await _planos.ContaAsync(user.UsuarioId)).PodeCriarCampanha,
                 Token = GenerateJwtToken(user, familiaId),
@@ -575,7 +579,6 @@ namespace Wyvern.Application.Services
                 new Claim(ClaimTypes.NameIdentifier, user.UsuarioId.ToString()),
                 new Claim(ClaimTypes.Name, user.Nome),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim("role", user.Papel ?? "Jogador"),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")), // cada emissão é um token distinto
                 new Claim(SidClaim, sessaoId.ToString())
             };

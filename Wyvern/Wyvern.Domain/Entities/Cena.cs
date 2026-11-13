@@ -171,6 +171,9 @@ namespace Wyvern.Domain.Entities
         /// <summary>Lado, em quadrados (1 = médio, 2 = grande, 3 = enorme, 4 = imenso).</summary>
         public int Tamanho { get; set; } = 1;
 
+        /// <summary>Para onde a miniatura 3D olha: graus em volta do eixo vertical, sentido horário visto de cima (0 a 360).</summary>
+        public double Rotacao { get; set; }
+
         /// <summary>Chave da paleta de cores (ver PaletaDeTokens); o desenho fica no front.</summary>
         [StringLength(12)]
         public string Cor { get; set; } = "ouro";
@@ -195,6 +198,10 @@ namespace Wyvern.Domain.Entities
 
         /// <summary>Escondido dos jogadores: eles nem recebem o token.</summary>
         public bool Oculto { get; set; }
+
+        /// <summary>Miniatura 3D só deste token; nula = usa a do personagem (se houver).</summary>
+        public int? ModeloId { get; set; }
+        public Modelo3d? Modelo { get; set; }
 
         public int? PersonagemId { get; set; }
         public Personagem? Personagem { get; set; }

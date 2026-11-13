@@ -96,9 +96,9 @@ namespace Wyvern.Api.Controllers
 
             var novosTokens = tokens.Select(t => new TokenCena
             {
-                CenaId = copia.CenaId, Nome = t.Nome, Coluna = t.Coluna, Linha = t.Linha, Tamanho = t.Tamanho, Cor = t.Cor,
+                CenaId = copia.CenaId, Nome = t.Nome, Coluna = t.Coluna, Linha = t.Linha, Tamanho = t.Tamanho, Rotacao = t.Rotacao, Cor = t.Cor,
                 Inimigo = t.Inimigo, Oculto = t.Oculto, Visao = t.Visao, ImagemVersao = t.ImagemVersao, DeslocamentoMetros = t.DeslocamentoMetros,
-                PersonagemId = t.PersonagemId, ControladoPorId = t.ControladoPorId,
+                PersonagemId = t.PersonagemId, ControladoPorId = t.ControladoPorId, ModeloId = t.ModeloId,
                 // o combatente não vai junto: o combate pertence à cena em que aconteceu
             }).ToList();
             await _uof.CenaRepository.AddTokensAsync(novosTokens);
@@ -110,6 +110,12 @@ namespace Wyvern.Api.Controllers
             {
                 CenaId = copia.CenaId, Coluna = m.Coluna, Linha = m.Linha, Icone = m.Icone, Titulo = m.Titulo, Nota = m.Nota, Visivel = m.Visivel,
             }));
+            foreach (var o in await _uof.Modelo3dRepository.ListarObjetosAsync(cenaId))
+                await _uof.Modelo3dRepository.AddObjetoAsync(new ObjetoCena
+                {
+                    CenaId = copia.CenaId, ModeloId = o.ModeloId, Coluna = o.Coluna, Linha = o.Linha, Tamanho = o.Tamanho, Rotacao = o.Rotacao, Oculto = o.Oculto,
+                    X = o.X, Y = o.Y, Z = o.Z, EscalaX = o.EscalaX, EscalaY = o.EscalaY, EscalaZ = o.EscalaZ, GiroX = o.GiroX, GiroZ = o.GiroZ,
+                });
             await _uof.CommitAsync();
 
             for (var i = 0; i < tokens.Count; i++)

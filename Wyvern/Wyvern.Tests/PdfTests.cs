@@ -18,7 +18,7 @@ public class PdfTests : IClassFixture<WyvernApiFactory>
         var (mestre, _) = await _factory.NovoUsuarioAsync();
         var campanha = await mestre.PostAsJsonAsync("/Campanha", new { nome = "Mesa", sistema = "D&D 5.5e" });
         var campanhaId = (await campanha.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("campanhaId").GetInt32();
-        var criado = await mestre.PostAsJsonAsync("/Personagem", new { nome = "Kaelith Vorn", campanhaId, tipoId = 1 });
+        var criado = await mestre.PostAsJsonAsync("/Personagem", Fichas.Heroi("Kaelith Vorn", campanhaId));
         var personagemId = (await criado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
 
         var resposta = await mestre.GetAsync($"/Personagem/{personagemId}/export-pdf");
@@ -38,8 +38,9 @@ public class PdfTests : IClassFixture<WyvernApiFactory>
         var criado = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Kaelith Vorn", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Bardo", raca = "Meio-elfo", nivel = 5, alinhamento = "Neutro", antecedente = "Artista" },
+            personagemPlayer = new { classe = "Bardo", raca = "Meio-elfo", nivel = 5, alinhamento = "Neutro", antecedente = "Artista", subclasse = "Colégio da Bravura" },
             atributo = new { forca = 8, destreza = 14, constituicao = 12, inteligencia = 11, sabedoria = 10, carisma = 18, proficienciaSalvaguardaCarisma = true },
+            personagemCombate = Fichas.Combate,
             personagemMagias = new[] { new { nome = "Zombaria Viciosa", nivel = 0, escola = "Encantamento", descricao = "x" } },
         });
         Assert.True(criado.IsSuccessStatusCode, await criado.Content.ReadAsStringAsync());
@@ -70,7 +71,7 @@ public class PdfTests : IClassFixture<WyvernApiFactory>
         var (estranho, _) = await _factory.NovoUsuarioAsync();
         var campanha = await mestre.PostAsJsonAsync("/Campanha", new { nome = "Mesa", sistema = "D&D 5.5e" });
         var campanhaId = (await campanha.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("campanhaId").GetInt32();
-        var criado = await mestre.PostAsJsonAsync("/Personagem", new { nome = "Secreto", campanhaId, tipoId = 1 });
+        var criado = await mestre.PostAsJsonAsync("/Personagem", Fichas.Heroi("Secreto", campanhaId));
         var personagemId = (await criado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
 
         var resposta = await estranho.GetAsync($"/Personagem/{personagemId}/export-pdf");

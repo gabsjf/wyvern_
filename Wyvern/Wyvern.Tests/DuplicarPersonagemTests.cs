@@ -23,7 +23,7 @@ public class DuplicarPersonagemTests : IClassFixture<WyvernApiFactory>
         {
             nome = "Goblin", campanhaId, tipoId = 3, descricao = "Pequeno e mau",
             atributo = new { forca = 8, destreza = 14, constituicao = 10, inteligencia = 10, sabedoria = 8, carisma = 8 },
-            personagemCombate = new { vidaMaxima = 7, vidaAtual = 7, classeArmadura = 15, condicoes = "" },
+            personagemCombate = new { vidaMaxima = 7, vidaAtual = 7, classeArmadura = 15, condicoes = "", deslocamento = "9m" },
             personagemNpc = new { categoriaUso = "Inimigo", tamanho = "Pequeno", tipoCriatura = "Humanoide", nivelDesafio = "1/4", xpConcedido = 50, formulaDadoVida = "2d6" },
             personagemAtaques = new[] { new { nome = "Cimitarra", alcance = "1,5m", bonusAcerto = 4, dano = "1d6+2", tipoDano = "Cortante", propriedades = "Acuidade" } },
             personagemAcoesPadrao = new[] { new { nome = "Ataque", descricao = "Corpo a corpo", alcance = "1,5m", bonusAcerto = 4, dano = "1d6+2", tipoDano = "Cortante", propriedades = "", atributoBase = "Destreza", proficiente = true, tipoAcao = "Ataque" } },

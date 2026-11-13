@@ -10,6 +10,9 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Application.Services;
+using Microsoft.AspNetCore.SignalR;
+using Wyvern.Api.Hubs;
+using Wyvern.Application.DTOs.Cena;
 
 namespace Wyvern.Api.Controllers
 {
@@ -23,9 +26,11 @@ namespace Wyvern.Api.Controllers
         private readonly ICurrentUserService _currentUser;
         private readonly ICampanhaAuthorizationService _campanhaAuth;
         private readonly ICronicaService _cronica;
+        private readonly IHubContext<CenaHub> _hub;
 
-        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica)
+        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica, IHubContext<CenaHub> hub)
         {
+            _hub = hub;
             _uof = uof;
             _mapper = mapper;
             _currentUser = currentUser;
@@ -101,7 +106,18 @@ namespace Wyvern.Api.Controllers
                 // Jogadores só podem criar tipo 1 (Jogador) e sem bloco NPC
                 personagem.TipoId = 1;
                 personagemDto.PersonagemNpc = null;
+                personagem.PersonagemNpc = null;
             }
+
+            // Obrigatórios de cada tipo (herói, NPC narrativo, NPC de combate/vilão, monstro): ver RegrasDaFicha.
+            var faltas = RegrasDaFicha.FaltasParaCriar(personagemDto, personagem.TipoId);
+            if (faltas.Count > 0)
+                return BadRequest(new { message = "A ficha ainda não está completa: " + string.Join(" ", faltas), erros = faltas });
+
+            // XP do NPC de combate, vilão ou monstro: o da tabela do ND, se o Mestre não informou outro
+            if (personagem.PersonagemNpc != null && personagem.PersonagemNpc.XpConcedido <= 0
+                && RegrasDaFicha.XpDoNd(personagem.PersonagemNpc.NivelDesafio) is int xp)
+                personagem.PersonagemNpc.XpConcedido = xp;
 
             if (personagemDto.PericiasIds != null && personagemDto.PericiasIds.Any())
             {
@@ -363,6 +379,8 @@ namespace Wyvern.Api.Controllers
                 : dto!.Nome!.Trim();
 
             var copia = PersonagemClonador.Clonar(origem, destino, nome, _currentUser.UserId ?? origem.CriadoPorId);
+            // a miniatura é da biblioteca da campanha: só vale numa cópia dentro da mesma campanha
+            if (destino == origem.CampanhaId) copia.ModeloId = origem.ModeloId;
             await _uof.PersonagemRepository.CreatePersonagemAsync(copia);
             await _uof.CommitAsync();
 
@@ -417,6 +435,26 @@ namespace Wyvern.Api.Controllers
 
             await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
             await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
+        }
+
+        /// <summary>
+        /// Escolhe (ou tira, com nulo) a miniatura 3D do personagem, da biblioteca da campanha. Dono ou Mestre. Todo token do
+        /// personagem passa a aparecer com ela na visão 3D, a menos que o token tenha uma própria.
+        /// </summary>
+        [HttpPut("{id:int}/miniatura")]
+        public async Task<ActionResult<PersonagemResponseDto>> DefinirMiniatura(int id, MiniaturaDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+            if (dto.ModeloId is { } modeloId && (await _uof.Modelo3dRepository.GetAsync(personagem.CampanhaId, modeloId))?.Categoria != Modelo3d.Miniatura)
+                return BadRequest(new { message = "Escolha uma miniatura da biblioteca da campanha do personagem." });
+
+            personagem.ModeloId = dto.ModeloId;
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+
+            await _hub.Clients.Group(CenaHub.GrupoDaMesa(personagem.CampanhaId)).SendAsync("ModelosAtualizados");
             return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
         }
 

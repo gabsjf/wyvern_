@@ -23,10 +23,7 @@ namespace Wyvern.Domain.Entities
         public bool Ativo { get; set; } = true;
         /// <summary>Quando a própria pessoa excluiu a conta. A linha fica anonimizada ("Conta excluída") só para os registros compartilhados não quebrarem.</summary>
         public DateTime? ExcluidoEm { get; set; }
-        /// <summary>Tipo de conta: "Mestre" (cria campanhas, conforme o plano) ou "Jogador" (só entra por convite).</summary>
-        [Required]
-        public string Papel { get; set; } = "Jogador";
-        /// <summary>Chave do plano no catálogo da configuração ("Free", "Standard"...). Só vale para conta Mestre.</summary>
+        /// <summary>Chave do plano no catálogo da configuração ("Free", "Standard"...). Toda conta tem um; o limite de campanhas vem dele.</summary>
         [Required, MaxLength(40)]
         public string Plano { get; set; } = "Free";
         public DateTime? PlanoAlteradoEm { get; set; }

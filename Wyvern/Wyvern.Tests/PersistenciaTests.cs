@@ -67,7 +67,7 @@ public class PersistenciaTests : IClassFixture<WyvernApiFactory>
         Assert.Equal(HttpStatusCode.OK, (await _factory.CadastrarEEntrarAsync(client, email)).StatusCode);
 
         // Cadastrar de novo não cria outra conta: a senha nova não serve e a antiga continua valendo.
-        await client.PostAsJsonAsync("/Auth/register", new { nome = "Outro", email, senha = "outra-senha", papel = "Jogador" });
+        await client.PostAsJsonAsync("/Auth/register", new { nome = "Outro", email, senha = "outra-senha" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await client.PostAsJsonAsync("/Auth/login", new { email, senha = "outra-senha" })).StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await client.PostAsJsonAsync("/Auth/login", new { email, senha = "senha123" })).StatusCode);

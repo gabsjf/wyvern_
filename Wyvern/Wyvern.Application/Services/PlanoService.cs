@@ -24,7 +24,7 @@ namespace Wyvern.Application.Services
         public const string Secao = "Planos";
         public const string Gratuito = "Free";
 
-        /// <summary>Durante o beta toda conta é Mestre com acesso completo, sem limites.</summary>
+        /// <summary>Durante o beta toda conta tem acesso completo, sem limites de plano.</summary>
         public bool Beta { get; set; } = true;
 
         public Dictionary<string, PlanoConfig> Catalogo { get; set; } = new(StringComparer.OrdinalIgnoreCase)
@@ -41,27 +41,18 @@ namespace Wyvern.Application.Services
         CatalogoDePlanosDto Catalogo();
         Task<ContaDto> ContaAsync(int usuarioId);
 
-        /// <summary>Conta Jogador (fora do beta) ou plano sem vaga: AcessoNegadoException com o motivo.</summary>
+        /// <summary>Plano sem vaga (fora do beta): AcessoNegadoException com o motivo.</summary>
         Task GarantirPodeCriarCampanhaAsync(int usuarioId);
 
         /// <summary>Usa o plano do dono da campanha; mesa cheia: RegraNegocioException.</summary>
         Task GarantirVagaNaCampanhaAsync(Campanha campanha);
 
-        /// <summary>Admin hoje, pagamento no futuro. Chave fora do catálogo: RegraNegocioException. A conta vira Mestre.</summary>
+        /// <summary>Admin hoje, pagamento no futuro. Chave fora do catálogo: RegraNegocioException.</summary>
         Task<ContaDto> DefinirPlanoAsync(int usuarioId, string plano);
-
-        /// <summary>Conta Jogador passa a ser Mestre no plano gratuito.</summary>
-        Task<ContaDto> VirarMestreAsync(int usuarioId);
-
-        /// <summary>Tipo de conta gravado no cadastro: no beta, sempre Mestre.</summary>
-        string TipoNoCadastro(string? escolhido);
     }
 
     public class PlanoService : IPlanoService
     {
-        public const string Mestre = "Mestre";
-        public const string Jogador = "Jogador";
-
         private readonly IUnitOfWork _uof;
         private readonly PlanosOptions _opcoes;
 
@@ -115,30 +106,10 @@ namespace Wyvern.Application.Services
                         ?? throw new RegraNegocioException($"Plano desconhecido. Use um destes: {string.Join(", ", _opcoes.Catalogo.Keys)}.");
 
             var user = await UsuarioParaEditarAsync(usuarioId);
-            user.Papel = Mestre;
             user.Plano = chave;
             user.PlanoAlteradoEm = DateTime.UtcNow;
             await _uof.CommitAsync();
             return await ContaAsync(usuarioId);
-        }
-
-        public async Task<ContaDto> VirarMestreAsync(int usuarioId)
-        {
-            var user = await UsuarioParaEditarAsync(usuarioId);
-            if (user.Papel != Mestre)
-            {
-                user.Papel = Mestre;
-                user.Plano = PlanosOptions.Gratuito;
-                user.PlanoAlteradoEm = DateTime.UtcNow;
-                await _uof.CommitAsync();
-            }
-            return await ContaAsync(usuarioId);
-        }
-
-        public string TipoNoCadastro(string? escolhido)
-        {
-            if (_opcoes.Beta) return Mestre;
-            return string.Equals(escolhido?.Trim(), Mestre, StringComparison.OrdinalIgnoreCase) ? Mestre : Jogador;
         }
 
         private async Task<Usuario> UsuarioParaEditarAsync(int usuarioId) =>
@@ -147,7 +118,7 @@ namespace Wyvern.Application.Services
         // Plano gravado fora do catálogo (renomeado na configuração, coluna vazia num banco antigo): vale o gratuito.
         private (string chave, PlanoConfig plano) PlanoDe(Usuario? user)
         {
-            if (user != null && user.Papel == Mestre && !string.IsNullOrEmpty(user.Plano) && _opcoes.Catalogo.TryGetValue(user.Plano, out var plano))
+            if (user != null && !string.IsNullOrEmpty(user.Plano) && _opcoes.Catalogo.TryGetValue(user.Plano, out var plano))
                 return (_opcoes.Catalogo.Keys.First(k => string.Equals(k, user.Plano, StringComparison.OrdinalIgnoreCase)), plano);
 
             return _opcoes.Catalogo.TryGetValue(PlanosOptions.Gratuito, out var gratuito)
@@ -157,11 +128,9 @@ namespace Wyvern.Application.Services
 
         private ContaDto Montar(Usuario user, int criadas)
         {
-            var ehMestre = user.Papel == Mestre;
             var (chave, plano) = PlanoDe(user);
             var conta = new ContaDto
             {
-                Tipo = ehMestre ? Mestre : Jogador,
                 Plano = chave,
                 NomePlano = plano.Nome,
                 Beta = _opcoes.Beta,
@@ -171,13 +140,6 @@ namespace Wyvern.Application.Services
             if (_opcoes.Beta)
             {
                 conta.PodeCriarCampanha = true; // sem limites no beta
-                return conta;
-            }
-
-            if (!ehMestre)
-            {
-                conta.MaxCampanhas = 0;
-                conta.MotivoBloqueio = "Contas de Jogador entram em campanhas pelo convite do Mestre. Vire Mestre no seu perfil para criar a sua.";
                 return conta;
             }
 

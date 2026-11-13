@@ -34,8 +34,10 @@ public class TrazerPersonagemTests : IClassFixture<WyvernApiFactory>
         var resposta = await dono.PostAsJsonAsync("/Personagem", new
         {
             nome, campanhaId, tipoId,
-            personagemPlayer = new { classe = "Maga", nivel = 5, raca = "Elfa" },
-            personagemCombate = new { vidaMaxima = 30, vidaAtual = 12, vidaTemporaria = 5, dadoVidaMaximo = "5d6", dadoVidaGasto = 3, condicoes = "Envenenado" },
+            personagemNpc = Fichas.BlocoSe(tipoId),
+            personagemPlayer = new { classe = "Maga", nivel = 5, raca = "Elfa", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 30, vidaAtual = 12, vidaTemporaria = 5, dadoVidaMaximo = "5d6", dadoVidaGasto = 3, condicoes = "Envenenado", deslocamento = "9m" },
         });
         Assert.True(resposta.IsSuccessStatusCode, await resposta.Content.ReadAsStringAsync());
         return (await resposta.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
@@ -46,7 +48,7 @@ public class TrazerPersonagemTests : IClassFixture<WyvernApiFactory>
     {
         var (mestreAntigo, _) = await _factory.NovoUsuarioAsync();
         var (mestreNovo, _) = await _factory.NovoUsuarioAsync();
-        var (jogador, _) = await _factory.NovoUsuarioAsync(papel: "Jogador");
+        var (jogador, _) = await _factory.NovoUsuarioAsync();
         var antiga = await CriarCampanhaAsync(mestreAntigo, "Mesa antiga");
         var nova = await CriarCampanhaAsync(mestreNovo, "Mesa nova");
         await EntrarAsync(mestreAntigo, jogador, antiga);

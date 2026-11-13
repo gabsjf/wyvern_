@@ -133,7 +133,6 @@ namespace Wyvern.Api.Controllers
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
-                Papel = user.Papel ?? "Jogador",
                 FotoVersao = user.FotoVersao,
                 PodeCriarCampanha = (await planos.ContaAsync(user.UsuarioId)).PodeCriarCampanha
             });

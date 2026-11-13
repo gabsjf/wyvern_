@@ -16,6 +16,8 @@ namespace Wyvern.Application.DTOs.Personagem
         public string? CriadoPorNome { get; set; }
         public DateTime CriadoEm { get; set; }
         public bool Ativo { get; set; }
+        /// <summary>Miniatura 3D da biblioteca da campanha (nula = token comum na visão 3D).</summary>
+        public int? ModeloId { get; set; }
         
         public AtributoResponseDto? Atributo { get; set; }
         public PersonagemPlayerResponseDto? PersonagemPlayer { get; set; }
