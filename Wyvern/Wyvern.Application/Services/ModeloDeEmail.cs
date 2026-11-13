@@ -72,6 +72,21 @@ namespace Wyvern.Application.Services
             tituloNota: "Não reconhece a troca?",
             nota: "Alguém pode ter a sua senha. Fale com o suporte do Wyvern o quanto antes para recuperar a conta.");
 
+        /// <summary>Aviso depois de trocar a senha pelo perfil (logado).</summary>
+        public static CorpoDeEmail SenhaAlterada(string nome, string urlEsqueciSenha, string urlLogo) => Montar(
+            preheader: "A senha da sua conta no Wyvern foi alterada.",
+            eyebrow: "Aviso de segurança",
+            titulo: "A sua senha foi alterada",
+            nome: nome,
+            paragrafos: new[]
+            {
+                "A senha da sua conta no Wyvern acabou de ser trocada pela tela Meu perfil. Os outros aparelhos conectados foram desconectados.",
+                "Se foi você, está tudo certo e não precisa fazer nada."
+            },
+            textoBotao: "Não fui eu: criar outra senha", url: urlEsqueciSenha, urlLogo: urlLogo,
+            tituloNota: "Não reconhece a troca?",
+            nota: "Alguém entrou na sua conta. Crie uma senha nova pelo botão acima: isso desconecta todo mundo.");
+
         public static CorpoDeEmail ContaExcluida(string nome, string urlCadastro, string urlLogo) => Montar(
             preheader: "A sua conta no Wyvern foi excluída.",
             eyebrow: "Conta excluída",

@@ -1,12 +1,18 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Wyvern.Application.DTOs.Paginacao;
 using Wyvern.Application.DTOs.Personagem;
+using Wyvern.Application.Mappings;
+using Wyvern.Domain.Consultas;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Interfaces.Repositories;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Application.Services;
+using Microsoft.AspNetCore.SignalR;
+using Wyvern.Api.Hubs;
+using Wyvern.Application.DTOs.Cena;
 
 namespace Wyvern.Api.Controllers
 {
@@ -20,9 +26,11 @@ namespace Wyvern.Api.Controllers
         private readonly ICurrentUserService _currentUser;
         private readonly ICampanhaAuthorizationService _campanhaAuth;
         private readonly ICronicaService _cronica;
+        private readonly IHubContext<CenaHub> _hub;
 
-        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica)
+        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica, IHubContext<CenaHub> hub)
         {
+            _hub = hub;
             _uof = uof;
             _mapper = mapper;
             _currentUser = currentUser;
@@ -43,6 +51,23 @@ namespace Wyvern.Api.Controllers
 
             var personagensDto = _mapper.Map<List<PersonagemResponseDto>>(personagens);
             return Ok(personagensDto);
+        }
+
+        /// <summary>
+        /// O elenco paginado, por campanha e nome. <paramref name="tipo"/> é "herois" (padrão) ou "monstros" (NPCs e monstros).
+        /// Traz também as contagens das abas e de cada campanha, para a tela montar os filtros sem baixar tudo.
+        /// </summary>
+        [HttpGet("pagina")]
+        public async Task<ActionResult<PaginaDePersonagensDto>> GetPagina(
+            [FromQuery] int? pagina, [FromQuery] int? tamanho, [FromQuery] string? busca,
+            [FromQuery] string? tipo, [FromQuery] int? campanhaId)
+        {
+            var herois = tipo is null or "" or "herois";
+            if (!herois && tipo != "monstros")
+                return BadRequest(new { message = "Tipo deve ser \"herois\" ou \"monstros\"." });
+
+            var resultado = await _uof.ListagensRepository.PersonagensAsync(new PedidoDePagina(pagina, tamanho), busca, herois, campanhaId);
+            return Ok(ListagensMapper.ParaDto(resultado, _mapper));
         }
         [HttpGet("{id:int}")]
         public async Task<ActionResult<PersonagemResponseDto>> GetPersonagemById( int id)
@@ -81,7 +106,18 @@ namespace Wyvern.Api.Controllers
                 // Jogadores só podem criar tipo 1 (Jogador) e sem bloco NPC
                 personagem.TipoId = 1;
                 personagemDto.PersonagemNpc = null;
+                personagem.PersonagemNpc = null;
             }
+
+            // Obrigatórios de cada tipo (herói, NPC narrativo, NPC de combate/vilão, monstro): ver RegrasDaFicha.
+            var faltas = RegrasDaFicha.FaltasParaCriar(personagemDto, personagem.TipoId);
+            if (faltas.Count > 0)
+                return BadRequest(new { message = "A ficha ainda não está completa: " + string.Join(" ", faltas), erros = faltas });
+
+            // XP do NPC de combate, vilão ou monstro: o da tabela do ND, se o Mestre não informou outro
+            if (personagem.PersonagemNpc != null && personagem.PersonagemNpc.XpConcedido <= 0
+                && RegrasDaFicha.XpDoNd(personagem.PersonagemNpc.NivelDesafio) is int xp)
+                personagem.PersonagemNpc.XpConcedido = xp;
 
             if (personagemDto.PericiasIds != null && personagemDto.PericiasIds.Any())
             {
@@ -117,6 +153,8 @@ namespace Wyvern.Api.Controllers
             {
                 personagemDto.TipoId = pBanco.TipoId;
                 personagemDto.PersonagemNpc = null;
+                // O que muda ao subir de nível só muda pela subida (ou pela correção do Mestre)
+                ProgressaoService.ProtegerCamposDeNivel(pBanco, personagemDto);
             }
 
             pBanco.Nome = personagemDto.Nome;
@@ -234,6 +272,69 @@ namespace Wyvern.Api.Controllers
             return Ok(_mapper.Map<PersonagemResponseDto>(pBanco));
         }
 
+        /// <summary>O que muda no próximo nível (regras do D&D 2024) e se o personagem já pode subir. Dono ou Mestre.</summary>
+        [HttpGet("{id:int}/proximo-nivel")]
+        public async Task<ActionResult<ProximoNivelDto>> ProximoNivel(int id)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+            return Ok(ProgressaoService.Previa(personagem));
+        }
+
+        /// <summary>
+        /// Sobe um nível com as escolhas do jogador (PV fixo ou rolado, subclasse, melhoria de atributo ou talento).
+        /// Só quando o Mestre já liberou o nível (por XP ou por marco). Dono ou Mestre.
+        /// </summary>
+        [HttpPost("{id:int}/subir-nivel")]
+        public async Task<ActionResult<ResultadoSubidaDto>> SubirNivel(int id, SubirNivelDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+
+            var (pvGanhos, resumo) = ProgressaoService.Aplicar(personagem, dto);
+            var nivelNovo = personagem.PersonagemPlayer!.Nivel;
+            await _cronica.RegistrarAutomaticoAsync(personagem.CampanhaId, "Marco", $"{personagem.Nome} subiu para o nível {nivelNovo}", resumo);
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(new ResultadoSubidaDto
+            {
+                Personagem = _mapper.Map<PersonagemResponseDto>(personagem),
+                NivelNovo = nivelNovo,
+                PvGanhos = pvGanhos,
+                Resumo = resumo,
+            });
+        }
+
+        /// <summary>Só o Mestre: ajusta o XP e/ou libera um nível por marco.</summary>
+        [HttpPut("{id:int}/progressao")]
+        public async Task<ActionResult<PersonagemResponseDto>> AtualizarProgressao(int id, ProgressaoDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+            if (!await _campanhaAuth.IsMestreAsync(personagem.CampanhaId, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Só o Mestre da campanha libera níveis e dá XP.");
+            if (personagem.TipoId != 1 || personagem.PersonagemPlayer == null)
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Só personagens de jogador têm XP e nível.");
+
+            var player = personagem.PersonagemPlayer;
+            if (dto.Xp is { } xp)
+            {
+                if (xp < 0 || xp > 10_000_000) return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "XP inválido.");
+                player.Xp = xp;
+            }
+            if (dto.NivelLiberado is { } liberado)
+            {
+                if (liberado < 0 || liberado > RegrasDnd2024.NivelMaximo)
+                    return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "O nível liberado vai de 0 a 20.");
+                player.NivelLiberado = liberado;
+            }
+
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
+        }
+
         /// <summary>
         /// Registra um descanso curto ou longo. O repositório só devolve o personagem ao dono ou ao Mestre da campanha
         /// (para os demais ele não existe), então essa é a mesma regra de quem pode editar a ficha.
@@ -278,7 +379,42 @@ namespace Wyvern.Api.Controllers
                 : dto!.Nome!.Trim();
 
             var copia = PersonagemClonador.Clonar(origem, destino, nome, _currentUser.UserId ?? origem.CriadoPorId);
+            // a miniatura é da biblioteca da campanha: só vale numa cópia dentro da mesma campanha
+            if (destino == origem.CampanhaId) copia.ModeloId = origem.ModeloId;
             await _uof.PersonagemRepository.CreatePersonagemAsync(copia);
+            await _uof.CommitAsync();
+
+            var salvo = await _uof.PersonagemRepository.GetPersonagemAsync(copia.PersonagemId);
+            return Ok(_mapper.Map<PersonagemResponseDto>(salvo));
+        }
+
+        /// <summary>
+        /// O jogador traz um herói que já tem (de outra campanha) para uma campanha de que participa, por exemplo ao entrar
+        /// por convite. Vai uma cópia: a ficha original continua na campanha antiga. A cópia chega descansada e com o mesmo
+        /// nível; a crônica da campanha nova registra a chegada para o Mestre ver e ajustar, se quiser.
+        /// </summary>
+        [HttpPost("{id:int}/trazer")]
+        public async Task<ActionResult<PersonagemResponseDto>> Trazer(int id, PersonagemTrazerDto dto)
+        {
+            // GetPersonagemAsync só devolve o que o usuário pode ver; aqui vale só o que é dele e é herói
+            var origem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (origem == null || origem.CriadoPorId != _currentUser.UserId)
+                return NotFound("Personagem não encontrado");
+            if (origem.TipoId != 1)
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Só heróis podem ser levados para outra campanha.");
+            if (origem.CampanhaId == dto.CampanhaId)
+                return Problem(statusCode: StatusCodes.Status400BadRequest, detail: "Este personagem já está nesta campanha.");
+            if (!await _campanhaAuth.IsMembroAsync(dto.CampanhaId, _currentUser.UserId))
+                return Problem(statusCode: StatusCodes.Status403Forbidden, detail: "Você só pode trazer personagens para campanhas de que participa.");
+
+            var copia = PersonagemClonador.Clonar(origem, dto.CampanhaId, origem.Nome, origem.CriadoPorId);
+            PersonagemClonador.PrepararParaNovaCampanha(copia);
+            await _uof.PersonagemRepository.CreatePersonagemAsync(copia);
+
+            var player = copia.PersonagemPlayer;
+            var quem = player == null ? "Um herói" : $"{player.Classe} de nível {player.Nivel}".Trim();
+            await _cronica.RegistrarAutomaticoAsync(dto.CampanhaId, "Outro", $"{copia.Nome} chegou à campanha",
+                $"{quem} trazido de outra campanha pelo jogador. O Mestre pode ajustar a ficha se o nível não combinar com a mesa.");
             await _uof.CommitAsync();
 
             var salvo = await _uof.PersonagemRepository.GetPersonagemAsync(copia.PersonagemId);
@@ -299,6 +435,26 @@ namespace Wyvern.Api.Controllers
 
             await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
             await _uof.CommitAsync();
+            return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
+        }
+
+        /// <summary>
+        /// Escolhe (ou tira, com nulo) a miniatura 3D do personagem, da biblioteca da campanha. Dono ou Mestre. Todo token do
+        /// personagem passa a aparecer com ela na visão 3D, a menos que o token tenha uma própria.
+        /// </summary>
+        [HttpPut("{id:int}/miniatura")]
+        public async Task<ActionResult<PersonagemResponseDto>> DefinirMiniatura(int id, MiniaturaDto dto)
+        {
+            var personagem = await _uof.PersonagemRepository.GetPersonagemAsync(id);
+            if (personagem == null) return NotFound("Personagem não encontrado");
+            if (dto.ModeloId is { } modeloId && (await _uof.Modelo3dRepository.GetAsync(personagem.CampanhaId, modeloId))?.Categoria != Modelo3d.Miniatura)
+                return BadRequest(new { message = "Escolha uma miniatura da biblioteca da campanha do personagem." });
+
+            personagem.ModeloId = dto.ModeloId;
+            await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            await _uof.CommitAsync();
+
+            await _hub.Clients.Group(CenaHub.GrupoDaMesa(personagem.CampanhaId)).SendAsync("ModelosAtualizados");
             return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
         }
 

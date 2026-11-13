@@ -1,7 +1,10 @@
 using AutoMapper;
 using Microsoft.AspNetCore.Mvc;
+using Wyvern.Application.DTOs.Paginacao;
 using Wyvern.Application.DTOs.Sessao;
+using Wyvern.Application.Mappings;
 using Wyvern.Application.Services;
+using Wyvern.Domain.Consultas;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Domain.Interfaces.Repositories;
@@ -38,6 +41,14 @@ public class SessaoController : ControllerBase
     {
         var sessions = await _uof.SessaoRepository.GetSessoesAsync();
         return Ok(_mapper.Map<List<SessaoResponseDto>>(sessions));
+    }
+
+    /// <summary>O diário paginado: por campanha e, dentro dela, da mais nova para a mais antiga. Traz a contagem por campanha.</summary>
+    [HttpGet("pagina")]
+    public async Task<ActionResult<PaginaDeSessoesDto>> GetPagina([FromQuery] int? pagina, [FromQuery] int? tamanho, [FromQuery] int? campanhaId)
+    {
+        var resultado = await _uof.ListagensRepository.SessoesAsync(new PedidoDePagina(pagina, tamanho), campanhaId);
+        return Ok(ListagensMapper.ParaDto(resultado, _mapper));
     }
 
     [HttpGet("{id:int}")]

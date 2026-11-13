@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Wyvern.Domain.Entities;
+using Wyvern.Domain.Regras;
 using Wyvern.Infrastructure.Data;
 using UsuarioEntity = Wyvern.Domain.Entities.Usuario;
 using Wyvern.Domain.Interfaces.Repositories.Usuario;
@@ -32,8 +33,10 @@ namespace Wyvern.Infrastructure.Repositories.Usuario
 
         public async Task<UsuarioEntity?> GetByEmailAsync(string email)
         {
+            // Os e-mails são guardados em minúsculas (EmailDaConta): a busca normaliza do mesmo jeito.
+            var normalizado = EmailDaConta.Normalizar(email);
             return await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.Email == email && u.Ativo);
+                .FirstOrDefaultAsync(u => u.Email == normalizado && u.Ativo);
         }
 
         public Task<UsuarioEntity> CreateUsuarioAsync(UsuarioEntity usuario)
@@ -59,8 +62,11 @@ namespace Wyvern.Infrastructure.Repositories.Usuario
         public Task<UsuarioEntity?> GetResumoAsync(int id) =>
             _context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.UsuarioId == id && u.Ativo);
 
-        public Task<bool> EmailEmUsoPorOutraContaAsync(string email, int usuarioId) =>
-            _context.Usuarios.AnyAsync(u => u.Email == email && u.UsuarioId != usuarioId);
+        public Task<bool> EmailEmUsoPorOutraContaAsync(string email, int usuarioId)
+        {
+            var normalizado = EmailDaConta.Normalizar(email);
+            return _context.Usuarios.AnyAsync(u => u.Email == normalizado && u.UsuarioId != usuarioId);
+        }
 
         public Task<UsuarioFoto?> GetFotoAsync(int usuarioId) =>
             _context.UsuarioFotos.AsNoTracking().FirstOrDefaultAsync(f => f.UsuarioId == usuarioId);

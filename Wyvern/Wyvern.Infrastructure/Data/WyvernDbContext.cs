@@ -53,6 +53,11 @@ namespace Wyvern.Infrastructure.Data
         public DbSet<PersonagemReacao> PersonagemReacoes { get; set; }
         public DbSet<PersonagemAcaoLendaria> PersonagemAcoesLendarias { get; set; }
         public DbSet<PersonagemTracoEspecial> PersonagemTracosEspeciais { get; set; }
+        public DbSet<Mural> Murais { get; set; }
+        public DbSet<MuralImagem> MuralImagens { get; set; }
+        public DbSet<Modelo3d> Modelos3d { get; set; }
+        public DbSet<Modelo3dArquivo> Modelos3dArquivos { get; set; }
+        public DbSet<ObjetoCena> ObjetosCena { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -216,6 +221,33 @@ namespace Wyvern.Infrastructure.Data
                 .HasIndex(c => new { c.CampanhaId, c.Ordem });
             modelBuilder.Entity<CenaImagem>()
                 .HasOne(i => i.Cena).WithOne().HasForeignKey<CenaImagem>(i => i.CenaId).OnDelete(DeleteBehavior.Cascade);
+
+            // Murais: somem com a campanha; as imagens, com o mural
+            modelBuilder.Entity<Mural>()
+                .HasOne(m => m.Campanha).WithMany().HasForeignKey(m => m.CampanhaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Mural>().HasIndex(m => m.CampanhaId);
+            modelBuilder.Entity<MuralImagem>()
+                .HasOne(i => i.Mural).WithMany().HasForeignKey(i => i.MuralId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<MuralImagem>().HasIndex(i => i.MuralId);
+
+            // Modelos 3D: somem com a campanha; os bytes e as peças postas nos mapas somem com o modelo. Apagar o modelo
+            // só tira a miniatura de quem a usava; apagar quem subiu deixa o modelo sem autor.
+            modelBuilder.Entity<Modelo3d>()
+                .HasOne(m => m.Campanha).WithMany().HasForeignKey(m => m.CampanhaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<Modelo3d>()
+                .HasOne(m => m.EnviadoPor).WithMany().HasForeignKey(m => m.EnviadoPorId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<Modelo3d>().HasIndex(m => new { m.CampanhaId, m.Categoria });
+            modelBuilder.Entity<Modelo3d>().Property(m => m.Escala).HasDefaultValue(Modelo3d.EscalaAuto);
+            modelBuilder.Entity<Modelo3dArquivo>()
+                .HasOne(a => a.Modelo).WithOne().HasForeignKey<Modelo3dArquivo>(a => a.ModeloId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ObjetoCena>()
+                .HasOne(o => o.Cena).WithMany().HasForeignKey(o => o.CenaId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<ObjetoCena>()
+                .HasOne(o => o.Modelo).WithMany().HasForeignKey(o => o.ModeloId).OnDelete(DeleteBehavior.Cascade);
+            modelBuilder.Entity<TokenCena>()
+                .HasOne(t => t.Modelo).WithMany().HasForeignKey(t => t.ModeloId).OnDelete(DeleteBehavior.SetNull);
+            modelBuilder.Entity<Personagem>()
+                .HasOne(p => p.Modelo).WithMany().HasForeignKey(p => p.ModeloId).OnDelete(DeleteBehavior.SetNull);
             modelBuilder.Entity<Cena>().Property(c => c.MetrosPorQuadrado).HasDefaultValue(1.5);
             modelBuilder.Entity<Cena>().Property(c => c.LimitarDeslocamento).HasDefaultValue(true);
             modelBuilder.Entity<Cena>()

@@ -15,5 +15,9 @@ namespace Wyvern.Application.DTOs.Personagem
         public string? Antecedente { get; set; }
         public string? Subclasse { get; set; }
         public string? Tamanho { get; set; }
+        /// <summary>Nível liberado pelo Mestre por marco (0 = nenhum).</summary>
+        public int NivelLiberado { get; set; }
+        /// <summary>Até que nível o personagem pode subir agora (maior entre o XP e o marco). Calculado.</summary>
+        public int NivelDisponivel { get; set; }
     }
 }

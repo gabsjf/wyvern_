@@ -24,9 +24,7 @@ namespace Wyvern.Infrastructure.Repositories.Sessao
 
             return _context.Sessoes
                 .Include(s => s.Campanha)
-                .Where(s => s.Ativo
-                    && s.Campanha.Ativo
-                    && s.Campanha.Membros!.Any(m => m.UsuarioId == userId));
+                .Where(Visibilidade.DaSessao(userId));
         }
 
         public async Task<IEnumerable<SessaoEntity>> GetSessoesAsync()

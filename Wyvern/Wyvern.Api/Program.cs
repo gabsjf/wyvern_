@@ -42,6 +42,7 @@ builder.Services.AddSingleton<ILimitadorDeLogin, LimitadorDeLogin>(); // estado 
 builder.Services.AddScoped<IAuthService, AuthService>();
 // Planos: limites por tipo de conta; "Planos:Beta" libera tudo para todo mundo enquanto durar o beta.
 builder.Services.Configure<PlanosOptions>(builder.Configuration.GetSection(PlanosOptions.Secao));
+builder.Services.Configure<Wyvern.Application.DTOs.Cena.Modelos3dOptions>(builder.Configuration.GetSection(Wyvern.Application.DTOs.Cena.Modelos3dOptions.Secao));
 builder.Services.AddScoped<IPlanoService, PlanoService>();
 builder.Services.AddEnvioDeEmail(builder.Configuration, builder.Environment.IsDevelopment());
 builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationService>();

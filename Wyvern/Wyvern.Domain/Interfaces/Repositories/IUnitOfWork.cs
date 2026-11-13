@@ -28,6 +28,11 @@ namespace Wyvern.Domain.Interfaces.Repositories
         IPastaAnotacaoRepository PastaAnotacaoRepository { get; }
         IEventoCampanhaRepository EventoCampanhaRepository { get; }
         Wyvern.Domain.Interfaces.Repositories.Cena.ICenaRepository CenaRepository { get; }
+        IModelo3dRepository Modelo3dRepository { get; }
+        /// <summary>Listas paginadas e o painel inicial.</summary>
+        IListagensRepository ListagensRepository { get; }
+        /// <summary>Murais (quadros livres) do Mestre.</summary>
+        IMuralRepository MuralRepository { get; }
         Task CommitAsync();
 
     }

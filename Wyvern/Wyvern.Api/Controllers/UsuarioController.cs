@@ -58,16 +58,11 @@ namespace Wyvern.Api.Controllers
                 Nome = user.Nome,
                 Email = user.Email,
                 EmailPendente = user.EmailPendente,
-                Papel = user.Papel,
                 CriadoEm = user.CriadoEm,
                 FotoVersao = user.FotoVersao,
                 Conta = await _planos.ContaAsync(user.UsuarioId)
             });
         }
-
-        /// <summary>Conta Jogador passa a ser Mestre no plano gratuito (pode criar a própria campanha).</summary>
-        [HttpPost("me/virar-mestre")]
-        public async Task<ActionResult<ContaDto>> VirarMestre() => Ok(await _planos.VirarMestreAsync(UsuarioId));
 
         [HttpPut("me/nome")]
         public async Task<ActionResult<PerfilDto>> AlterarNome(AlterarNomeDto dto)

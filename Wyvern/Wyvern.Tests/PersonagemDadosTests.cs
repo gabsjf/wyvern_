@@ -20,6 +20,7 @@ public class PersonagemDadosTests : IClassFixture<WyvernApiFactory>
         {
             nome = "Kaelith Vorn", campanhaId, tipoId = 1,
             personagemPlayer = new { classe = "Bardo", raca = "Meio-elfo", nivel = 5, alinhamento = "Neutro", antecedente = "Artista", subclasse = "Colégio da Bravura", tamanho = "Médio" },
+            atributo = Fichas.Atributos, personagemCombate = Fichas.Combate,
         });
         criado.EnsureSuccessStatusCode();
         var id = (await criado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
@@ -41,6 +42,7 @@ public class PersonagemDadosTests : IClassFixture<WyvernApiFactory>
         var criado = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Kaelith", campanhaId, tipoId = 1,
+            personagemPlayer = Fichas.Origem, personagemCombate = Fichas.Combate,
             atributo = new
             {
                 forca = 8, destreza = 14, constituicao = 12, inteligencia = 11, sabedoria = 10, carisma = 18,
@@ -67,6 +69,7 @@ public class PersonagemDadosTests : IClassFixture<WyvernApiFactory>
         {
             nome = "Kaelith", campanhaId, tipoId = 1,
             personagemPlayer = new { classe = "Bardo", raca = "Meio-elfo", nivel = 1, alinhamento = "Neutro", antecedente = "Artista" },
+            atributo = Fichas.Atributos, personagemCombate = Fichas.Combate,
         });
         var id = (await criado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
 

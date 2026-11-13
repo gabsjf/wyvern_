@@ -3,8 +3,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Wyvern.Application.DTOs.Campanha;
+using Wyvern.Application.DTOs.Paginacao;
 using Wyvern.Application.DTOs.Sessao;
+using Wyvern.Application.Mappings;
 using Wyvern.Application.Services;
+using Wyvern.Domain.Consultas;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Interfaces;
 using Wyvern.Domain.Interfaces.Repositories;
@@ -48,6 +51,14 @@ namespace Wyvern.Api.Controllers
                 campanhasDto[i].Papel = PapelDe(campanhas[i], UsuarioId);
 
             return Ok(campanhasDto);
+        }
+
+        /// <summary>A estante paginada: da mais nova para a mais antiga, já com papel e números de cada capa.</summary>
+        [HttpGet("pagina")]
+        public async Task<ActionResult<PaginaDto<CampanhaNaListaDto>>> GetPagina([FromQuery] int? pagina, [FromQuery] int? tamanho, [FromQuery] string? busca)
+        {
+            var resultado = await _uof.ListagensRepository.CampanhasAsync(new PedidoDePagina(pagina, tamanho), busca);
+            return Ok(ListagensMapper.ParaDto(resultado));
         }
 
         [HttpGet("{id:int}")]

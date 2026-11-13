@@ -210,8 +210,9 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         var personagem = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Estrangeiro", campanhaId = outra, tipoId = 1,
-            personagemPlayer = new { classe = "Mago", nivel = 1, raca = "Elfo" },
-            personagemCombate = new { vidaMaxima = 8, vidaAtual = 8, dadoVidaMaximo = "1d6" },
+            personagemPlayer = new { classe = "Mago", nivel = 1, raca = "Elfo", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 8, vidaAtual = 8, dadoVidaMaximo = "1d6", deslocamento = "9m" },
         });
         var personagemId = (await personagem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
 
@@ -289,8 +290,9 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         var personagem = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Thorin", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano" },
-            personagemCombate = new { vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10" },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10", deslocamento = "9m" },
         });
         var personagemId = (await personagem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
         var antes = await CriarTokenAsync(mestre, campanhaId, cenaId, Token("Thorin", coluna: 4, linha: 4, personagemId: personagemId));
@@ -671,7 +673,8 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         await using var hub = await ConectarAsync(sessaoJogador.Token);
         await hub.InvokeAsync("EntrarNaCena", campanhaId);
 
-        // sem a regra, qualquer um dos dois se move
+        // sem a regra (o Mestre desligou), qualquer um dos dois se move
+        (await mestre.PutAsJsonAsync($"/Campanha/{campanhaId}/Cenas/{cenaId}", new { nome = "Taverna", tamanhoCelula = 70, soNoTurno = false })).EnsureSuccessStatusCode();
         await hub.InvokeAsync("MoverToken", campanhaId, ids["Segundo"], 6, 6);
 
         (await mestre.PutAsJsonAsync($"/Campanha/{campanhaId}/Cenas/{cenaId}", new { nome = "Taverna", tamanhoCelula = 70, soNoTurno = true })).EnsureSuccessStatusCode();
@@ -998,7 +1001,7 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         Assert.Single(dois);                  // o 2x2 nem sai do lugar
     }
 
-    private async Task<(HttpClient mestre, HttpClient jogador, WyvernApiFactory.Sessao sessaoJogador, int campanhaId, int cenaId, int tokenId, WyvernApiFactory.Sessao sessaoMestre, int combateId)> MesaDeCombateAsync(string deslocamento)
+    private async Task<(HttpClient mestre, HttpClient jogador, WyvernApiFactory.Sessao sessaoJogador, int campanhaId, int cenaId, int tokenId, WyvernApiFactory.Sessao sessaoMestre, int combateId)> MesaDeCombateAsync(string deslocamento, int iniciativa = 15)
     {
         var (mestre, sessaoMestre) = await _factory.NovoUsuarioAsync();
         var (jogador, sessaoJogador) = await _factory.NovoUsuarioAsync();
@@ -1010,8 +1013,9 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         var personagem = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Lyra", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano" },
-            personagemCombate = new { vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10", deslocamento },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Humano", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 40, vidaAtual = 40, dadoVidaMaximo = "5d10", deslocamento },
         });
         var personagemId = (await personagem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
         var tokenId = (await CriarTokenAsync(mestre, campanhaId, cenaId, Token("Lyra", 0, 0, personagemId: personagemId, controladoPorId: sessaoJogador.UsuarioId))).GetProperty("tokenId").GetInt32();
@@ -1020,8 +1024,9 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
             sessaoId, campanhaId,
             participantes = new object[]
             {
-                new { personagemId, iniciativa = 15, vidaAtual = 40, vidaMaxima = 40, classeArmadura = 16, isInimigo = false, condicoes = "" },
+                new { personagemId, iniciativa, vidaAtual = 40, vidaMaxima = 40, classeArmadura = 16, isInimigo = false, condicoes = "" },
                 new { nomeNPC = "Goblin", iniciativa = 10, vidaAtual = 7, vidaMaxima = 7, classeArmadura = 13, isInimigo = true, condicoes = "" },
+                new { nomeNPC = "Orc", iniciativa = 8, vidaAtual = 15, vidaMaxima = 15, classeArmadura = 13, isInimigo = true, condicoes = "" },
             },
         });
         var combateId = (await inicio.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("combateId").GetInt32();
@@ -1066,10 +1071,66 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
         await hub.InvokeAsync("MoverToken", campanhaId, tokenId, 6, 0); // +2: esgota
         await Assert.ThrowsAsync<HubException>(() => hub.InvokeAsync("MoverToken", campanhaId, tokenId, 7, 0));
 
-        // a rodada seguinte devolve o movimento
-        (await mestre.PostAsync($"/Combate/{combateId}/next-turn", null)).EnsureSuccessStatusCode();
-        (await mestre.PostAsync($"/Combate/{combateId}/next-turn", null)).EnsureSuccessStatusCode();
+        // a rodada seguinte devolve o movimento (Lyra, Goblin, Orc e de novo Lyra)
+        for (var i = 0; i < 3; i++)
+            (await mestre.PostAsync($"/Combate/{combateId}/next-turn", null)).EnsureSuccessStatusCode();
         await hub.InvokeAsync("MoverToken", campanhaId, tokenId, 1, 5);
+    }
+
+    [Fact]
+    public async Task Cena_nova_ja_vem_com_os_jogadores_movendo_so_na_vez()
+    {
+        // WYV-28: Lyra é a terceira (Goblin 10, Orc 8, Lyra 5) e tentou andar antes da vez
+        var (mestre, _, sessaoJogador, campanhaId, cenaId, tokenId, _, combateId) = await MesaDeCombateAsync("9m", iniciativa: 5);
+        var cena = (await mestre.GetFromJsonAsync<JsonElement>($"/Campanha/{campanhaId}/Cenas")).EnumerateArray()
+            .Single(c => c.GetProperty("cenaId").GetInt32() == cenaId);
+        Assert.True(cena.GetProperty("soNoTurno").GetBoolean());
+
+        await using var hub = await ConectarAsync(sessaoJogador.Token);
+        await hub.InvokeAsync("EntrarNaCena", campanhaId);
+        var erro = await Assert.ThrowsAsync<HubException>(() => hub.InvokeAsync("MoverToken", campanhaId, tokenId, 1, 0));
+        Assert.Contains("vez", erro.Message);
+
+        for (var i = 0; i < 2; i++)
+            (await mestre.PostAsync($"/Combate/{combateId}/next-turn", null)).EnsureSuccessStatusCode();
+        await hub.InvokeAsync("MoverToken", campanhaId, tokenId, 6, 0); // na vez dela, os 6 quadrados inteiros
+    }
+
+    [Fact]
+    public async Task O_que_o_token_anda_na_vez_dos_outros_nao_gasta_o_movimento_do_proprio_turno()
+    {
+        // WYV-28: com a regra da vez desligada, Lyra (terceira) anda antes e, na vez dela, ainda tem tudo
+        var (mestre, _, sessaoJogador, campanhaId, cenaId, tokenId, _, combateId) = await MesaDeCombateAsync("9m", iniciativa: 5); // 6 quadrados
+        (await mestre.PutAsJsonAsync($"/Campanha/{campanhaId}/Cenas/{cenaId}", new { nome = "Taverna", tamanhoCelula = 70, soNoTurno = false, limitarDeslocamento = true }))
+            .EnsureSuccessStatusCode();
+        await using var hub = await ConectarAsync(sessaoJogador.Token);
+        await hub.InvokeAsync("EntrarNaCena", campanhaId);
+
+        await hub.InvokeAsync("MoverToken", campanhaId, tokenId, 4, 0); // na vez do Goblin
+        for (var i = 0; i < 2; i++)
+            (await mestre.PostAsync($"/Combate/{combateId}/next-turn", null)).EnsureSuccessStatusCode();
+
+        await hub.InvokeAsync("MoverToken", campanhaId, tokenId, 4, 6); // na vez dela: 6 quadrados, sem desconto
+        await Assert.ThrowsAsync<HubException>(() => hub.InvokeAsync("MoverToken", campanhaId, tokenId, 4, 7));
+    }
+
+    [Fact]
+    public void No_empate_de_iniciativa_a_ordem_e_sempre_a_mesma()
+    {
+        var combate = new Wyvern.Domain.Entities.Combate
+        {
+            TurnoAtualIndex = 0,
+            Participantes = new()
+            {
+                new() { ParticipanteId = 7, Iniciativa = 12 },
+                new() { ParticipanteId = 3, Iniciativa = 12 },
+                new() { ParticipanteId = 5, Iniciativa = 18 },
+            },
+        };
+        Assert.Equal(new[] { 5, 3, 7 }, Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes).Select(p => p.ParticipanteId));
+        combate.Participantes.Reverse(); // o banco devolveu em outra ordem
+        Assert.Equal(new[] { 5, 3, 7 }, Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes).Select(p => p.ParticipanteId));
+        Assert.Equal(5, combate.ParticipanteDaVez()!.ParticipanteId);
     }
 
     [Fact]

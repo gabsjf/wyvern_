@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Text.RegularExpressions;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Regras;
 
@@ -53,7 +54,9 @@ namespace Wyvern.Application.Services
             ("car", "ST Charisma", "Check Box 22"),
         };
 
-        internal static readonly (string Atributo, string Pontuacao, string Modificador)[] CamposAtributos =
+        // Atenção aos nomes do modelo: "STR" é o quadrado GRANDE de cada atributo, onde a ficha pede o MODIFICADOR,
+        // e "STRmod" é o oval pequeno embaixo, onde vai a PONTUAÇÃO. (Os nomes enganam; a posição na página não.)
+        internal static readonly (string Atributo, string Modificador, string Pontuacao)[] CamposAtributos =
         {
             ("for", "STR", "STRmod"),
             ("des", "DEX", "DEXmod"),
@@ -95,6 +98,7 @@ namespace Wyvern.Application.Services
             // ---- Página 1: identificação ----
             Definir(t, "CharacterName", p.Nome);
             Definir(t, "CharacterName 2", p.Nome);
+            Definir(t, "PlayerName", p.CriadoPor?.Nome);
 
             if (jogador != null)
             {
@@ -110,7 +114,7 @@ namespace Wyvern.Application.Services
             // ---- Atributos ----
             if (atributo != null)
             {
-                foreach (var (codigo, campoPontuacao, campoMod) in CamposAtributos)
+                foreach (var (codigo, campoMod, campoPontuacao) in CamposAtributos)
                 {
                     var pontuacao = Pontuacao(codigo)!.Value;
                     Definir(t, campoPontuacao, pontuacao.ToString(CultureInfo.InvariantCulture));
@@ -137,6 +141,7 @@ namespace Wyvern.Application.Services
                 Definir(t, "HPCurrent", combate.VidaAtual.ToString(CultureInfo.InvariantCulture));
                 if (combate.VidaTemporaria > 0) Definir(t, "HPTemp", combate.VidaTemporaria.ToString(CultureInfo.InvariantCulture));
                 Definir(t, "HDTotal", combate.DadoVidaMaximo);
+                Definir(t, "HD", DadosDeVidaRestantes(p));
                 if (combate.InspiracaoHeroica) Definir(t, "Inspiration", "1");
 
                 for (var i = 1; i <= 3; i++)
@@ -203,20 +208,29 @@ namespace Wyvern.Application.Services
                 Definir(t, "PP", dinheiro.PL.ToString(CultureInfo.InvariantCulture));
             }
 
+            // Raridade só quando diz algo: "(Comum)" em todo item era ruído.
             Definir(t, "Equipment", string.Join("\n", (p.PersonagemItens ?? new List<PersonagemItem>())
-                .Select(i => "• " + i.Nome + (string.IsNullOrWhiteSpace(i.Raridade) ? "" : $" ({i.Raridade})"))));
+                .Where(i => !string.IsNullOrWhiteSpace(i.Nome))
+                .Select(i => "• " + i.Nome.Trim() + (string.IsNullOrWhiteSpace(i.Raridade) || Normalizar(i.Raridade) == "comum" ? "" : $" ({i.Raridade.Trim()})"))));
 
             if (detalhes != null)
             {
-                var historia = detalhes.HistoriaPersonalidade ?? "";
-                var tracos = Primeiro(detalhes.TracosEspecie, ExtrairSecao(historia, "Traços de Espécie:"));
-                var talentos = Primeiro(detalhes.Talentos, ExtrairSecao(historia, "Talentos:"));
+                var historia = HistoriaEmSecoes.Ler(detalhes.HistoriaPersonalidade);
+                var tracos = Primeiro(detalhes.TracosEspecie, historia.De(HistoriaEmSecoes.TracosDeEspecie));
+                var talentos = Primeiro(detalhes.Talentos, historia.De(HistoriaEmSecoes.Talentos));
 
+                // Página 1: características de classe e traços de espécie. Os talentos vão para a página 2
+                // ("Additional Features & Traits"), em vez de aparecerem repetidos nas duas.
                 var caracteristicas = new List<string>();
                 if (!string.IsNullOrWhiteSpace(detalhes.CaracteristicasClasse)) caracteristicas.Add(detalhes.CaracteristicasClasse.Trim());
-                if (!string.IsNullOrWhiteSpace(tracos)) caracteristicas.Add("Traços de espécie:\n" + tracos);
-                if (!string.IsNullOrWhiteSpace(talentos)) caracteristicas.Add("Talentos:\n" + talentos);
+                if (!string.IsNullOrWhiteSpace(tracos)) caracteristicas.Add("Traços de espécie:\n" + tracos.Trim());
                 Definir(t, "Features and Traits", string.Join("\n\n", caracteristicas));
+
+                // Quadros de personalidade da página 1
+                Definir(t, "PersonalityTraits", historia.De(HistoriaEmSecoes.Tracos));
+                Definir(t, "Ideals", historia.De(HistoriaEmSecoes.Ideais));
+                Definir(t, "Bonds", historia.De(HistoriaEmSecoes.Vinculos));
+                Definir(t, "Flaws", historia.De(HistoriaEmSecoes.Defeitos));
 
                 var proficiencias = new List<string>();
                 if (!string.IsNullOrWhiteSpace(detalhes.Idiomas)) proficiencias.Add("Idiomas: " + detalhes.Idiomas.Trim());
@@ -230,11 +244,10 @@ namespace Wyvern.Application.Services
                 if (!string.IsNullOrWhiteSpace(detalhes.ProficienciaFerramentas)) proficiencias.Add("Ferramentas: " + detalhes.ProficienciaFerramentas.Trim());
                 Definir(t, "ProficienciesLang", string.Join("\n", proficiencias));
 
-                // ---- Página 2 ----
-                var hist = ExtrairSecao(historia, "História:");
-                if (string.IsNullOrWhiteSpace(hist) && !TemSecoes(historia)) hist = historia;
+                // ---- Página 2: a história (texto livre + seção "História:", com as quebras de linha) e a aparência ----
                 var backstory = new List<string>();
-                if (!string.IsNullOrWhiteSpace(hist)) backstory.Add(hist.Trim());
+                if (historia.Livre != "") backstory.Add(historia.Livre);
+                if (historia.De(HistoriaEmSecoes.Historia) != "") backstory.Add(historia.De(HistoriaEmSecoes.Historia));
                 if (!string.IsNullOrWhiteSpace(detalhes.Aparencia)) backstory.Add("Aparência: " + detalhes.Aparencia.Trim());
                 Definir(t, "Backstory", string.Join("\n\n", backstory));
                 Definir(t, "Feat+Traits", talentos);
@@ -343,15 +356,20 @@ namespace Wyvern.Application.Services
 
         private static bool EhNenhum(string valor) => Normalizar(valor) == "nenhum";
 
-        private static bool TemSecoes(string texto) =>
-            texto.Split('\n').Any(l => l.StartsWith("Traços de Espécie:") || l.StartsWith("Talentos:") || l.StartsWith("História:"));
-
-        // O importador grava as seções no texto como "Título: conteúdo", uma por linha.
-        private static string ExtrairSecao(string texto, string titulo)
+        /// <summary>
+        /// Dados de vida que ainda dá para gastar (o quadro grande "Hit Dice"): "5d8" com 2 gastos vira "3d8".
+        /// Sem o tipo de dado na ficha, só o número.
+        /// </summary>
+        public static string? DadosDeVidaRestantes(Personagem p)
         {
-            foreach (var linha in texto.Split('\n'))
-                if (linha.StartsWith(titulo)) return linha.Substring(titulo.Length).Trim();
-            return "";
+            var combate = p.PersonagemCombate;
+            if (combate == null) return null;
+            var total = DescansoService.TotalDadosVida(p);
+            if (total <= 0) return null;
+
+            var restantes = Math.Max(0, total - combate.DadoVidaGasto);
+            var faces = Regex.Match(combate.DadoVidaMaximo ?? "", @"d\s*(\d+)", RegexOptions.IgnoreCase);
+            return faces.Success ? $"{restantes}d{faces.Groups[1].Value}" : restantes.ToString(CultureInfo.InvariantCulture);
         }
 
         /// <summary>Minúsculas e sem acentos, para comparar nomes ("Atuação" == "atuacao").</summary>

@@ -201,8 +201,9 @@ public class CronicaTests : IClassFixture<WyvernApiFactory>
         var personagem = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Thorin", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Anão" },
-            personagemCombate = new { vidaMaxima = 40, vidaAtual = 10, dadoVidaMaximo = "5d10" },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 5, raca = "Anão", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 40, vidaAtual = 10, dadoVidaMaximo = "5d10", deslocamento = "9m" },
         });
         var id = (await personagem.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
 

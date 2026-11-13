@@ -337,7 +337,7 @@ namespace Wyvern.Api.Controllers
             var ligados = new List<int>();
             var proximo = 0;
 
-            foreach (var p in combate.Participantes.OrderByDescending(p => p.Iniciativa).Where(p => !jaNoMapa.Contains(p.ParticipanteId)))
+            foreach (var p in Combate.Ordenar(combate.Participantes).Where(p => !jaNoMapa.Contains(p.ParticipanteId)))
             {
                 // o personagem já está no mapa (colocado antes do combate): o token passa a representar o combatente
                 var existente = p.PersonagemId is { } pid
@@ -398,6 +398,8 @@ namespace Wyvern.Api.Controllers
                 return BadRequest(new { message = "O combatente informado não é desta campanha." });
             if (form.ControladoPorId is { } usuarioId && !await _campanhaAuth.IsMembroAsync(campanhaId, usuarioId))
                 return BadRequest(new { message = "Só quem participa da campanha pode controlar um token." });
+            if (form.ModeloId is { } modeloId && (await _uof.Modelo3dRepository.GetAsync(campanhaId, modeloId))?.Categoria != Modelo3d.Miniatura)
+                return BadRequest(new { message = "A miniatura precisa ser um modelo da categoria Miniaturas desta campanha." });
             return null;
         }
 
@@ -418,6 +420,7 @@ namespace Wyvern.Api.Controllers
             token.PersonagemId = form.PersonagemId;
             token.ParticipanteId = form.ParticipanteId;
             token.ControladoPorId = form.ControladoPorId;
+            token.ModeloId = form.ModeloId;
             (token.Coluna, token.Linha) = CenaRegras.Limitar(cena, token.Tamanho, form.Coluna, form.Linha);
         }
 

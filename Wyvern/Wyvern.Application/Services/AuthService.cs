@@ -10,6 +10,7 @@ using Wyvern.Application.DTOs.Auth;
 using Wyvern.Application.DTOs.Usuario;
 using Wyvern.Domain.Entities;
 using Wyvern.Domain.Exceptions;
+using Wyvern.Domain.Regras;
 using Wyvern.Domain.Interfaces.Repositories;
 using BCrypt.Net;
 
@@ -51,7 +52,7 @@ namespace Wyvern.Application.Services
 
         public async Task RegisterAsync(RegisterDto dto)
         {
-            var email = dto.Email.Trim();
+            var email = EmailDaConta.Normalizar(dto.Email);
 
             // O hash é calculado sempre, antes de consultar o e-mail: o tempo da resposta não revela se a conta existe.
             var senhaHash = BCrypt.Net.BCrypt.HashPassword(dto.Senha);
@@ -64,8 +65,6 @@ namespace Wyvern.Application.Services
                     Nome = dto.Nome.Trim(),
                     Email = email,
                     SenhaHash = senhaHash,
-                    // Tipo de conta: no beta, todo mundo é Mestre.
-                    Papel = _planos.TipoNoCadastro(dto.Papel),
                     Plano = PlanosOptions.Gratuito,
                     CriadoEm = DateTime.Now,
                     Ativo = true
@@ -108,7 +107,7 @@ namespace Wyvern.Application.Services
         /// </summary>
         public async Task SolicitarRedefinicaoDeSenhaAsync(string email)
         {
-            var user = await _uof.UsuarioRepository.GetByEmailAsync(email.Trim());
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(EmailDaConta.Normalizar(email));
             if (user == null) return;
 
             if (user.EmailConfirmadoEm == null)
@@ -164,12 +163,27 @@ namespace Wyvern.Application.Services
             hashSalvo != null && expiraEm != null && expiraEm > DateTime.UtcNow
             && CryptographicOperations.FixedTimeEquals(Encoding.ASCII.GetBytes(hashSalvo), Encoding.ASCII.GetBytes(HashDoToken(token)));
 
-        // Link de confirmação, válido por 24 h.
+        public async Task ReenviarConfirmacaoAsync(string email)
+        {
+            var user = await _uof.UsuarioRepository.GetByEmailAsync(EmailDaConta.Normalizar(email));
+            if (user == null || user.EmailConfirmadoEm != null) return;
+
+            // Um link por minuto, no máximo: o botão não vira um jeito de lotar a caixa de alguém.
+            var enviadoEm = user.TokenConfirmacaoExpiraEm - ValidadeDaConfirmacao;
+            if (enviadoEm > DateTime.UtcNow - IntervaloEntreReenvios) return;
+
+            await EnviarConfirmacaoAsync(user);
+        }
+
+        private static readonly TimeSpan ValidadeDaConfirmacao = TimeSpan.FromHours(24);
+        private static readonly TimeSpan IntervaloEntreReenvios = TimeSpan.FromMinutes(1);
+
+        // Link de confirmação, válido por 24 h. Um link novo invalida o anterior.
         private async Task EnviarConfirmacaoAsync(Usuario user)
         {
             var token = NovoToken(user.UsuarioId);
             user.TokenConfirmacaoHash = HashDoToken(token);
-            user.TokenConfirmacaoExpiraEm = DateTime.UtcNow.AddHours(24);
+            user.TokenConfirmacaoExpiraEm = DateTime.UtcNow + ValidadeDaConfirmacao;
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
@@ -179,7 +193,7 @@ namespace Wyvern.Application.Services
 
         public async Task<AuthResponseDto> LoginAsync(LoginDto dto, string? dispositivo = null)
         {
-            var email = dto.Email.Trim();
+            var email = EmailDaConta.Normalizar(dto.Email);
 
             // Bloqueado: nem confere a senha, para o atacante não testar palpites durante o bloqueio.
             if (_limitador.TempoRestanteDoBloqueio(email) is { } espera)
@@ -196,7 +210,7 @@ namespace Wyvern.Application.Services
             _limitador.Zerar(email);
             // Só depois de a senha conferir: quem não tem a senha não descobre nada sobre a conta.
             if (user.EmailConfirmadoEm == null)
-                throw new RegraNegocioException("Confirme o seu e-mail para entrar. Enviamos um link para a sua caixa de entrada.");
+                throw new EmailNaoConfirmadoException();
 
             return await CriarRespostaAsync(user, Guid.NewGuid(), dispositivo);
         }
@@ -259,8 +273,13 @@ namespace Wyvern.Application.Services
         public async Task TrocarSenhaAsync(int usuarioId, Guid? sessaoAtual, string senhaAtual, string novaSenha)
         {
             var user = await ConferirSenhaAtualAsync(usuarioId, senhaAtual);
+            if (novaSenha == senhaAtual)
+                throw new RegraNegocioException("A nova senha precisa ser diferente da atual.");
 
             user.SenhaHash = BCrypt.Net.BCrypt.HashPassword(novaSenha);
+            // Um link de "esqueci a senha" pedido antes da troca não vale mais.
+            user.TokenRedefinicaoHash = null;
+            user.TokenRedefinicaoExpiraEm = null;
             await _uof.UsuarioRepository.UpdateUsuarioAsync(user);
             await _uof.CommitAsync();
 
@@ -268,13 +287,17 @@ namespace Wyvern.Application.Services
             var agora = DateTime.UtcNow;
             foreach (var familiaId in await _uof.RefreshTokenRepository.RevogarOutrasAsync(user.UsuarioId, sessaoAtual ?? Guid.Empty, agora))
                 _sessoes.Invalidar(familiaId);
+
+            // Aviso ao dono: se não foi ele, o botão leva direto a criar outra senha (o que derruba todas as sessões).
+            var corpo = ModeloDeEmail.SenhaAlterada(user.Nome, $"{_urlFront}/esqueci-senha", UrlLogo);
+            await _email.EnviarAsync(user.Email, "A senha da sua conta foi alterada - Wyvern", corpo.Texto, corpo.Html);
         }
 
         public async Task SolicitarTrocaDeEmailAsync(int usuarioId, string novoEmail, string senhaAtual)
         {
             var user = await ConferirSenhaAtualAsync(usuarioId, senhaAtual);
 
-            var email = novoEmail.Trim();
+            var email = EmailDaConta.Normalizar(novoEmail);
             if (string.Equals(email, user.Email, StringComparison.OrdinalIgnoreCase))
                 throw new RegraNegocioException("Esse já é o e-mail da sua conta.");
 
@@ -417,7 +440,6 @@ namespace Wyvern.Application.Services
             user.TokenTrocaEmailHash = null;
             user.TokenTrocaEmailExpiraEm = null;
             user.FotoVersao = 0;
-            user.Papel = PlanoService.Jogador;
             user.Plano = PlanosOptions.Gratuito;
             await _uof.CommitAsync();
 
@@ -495,7 +517,6 @@ namespace Wyvern.Application.Services
             AdicionarSePresente(claims, usuario, ClaimTypes.NameIdentifier, "nameid");
             AdicionarSePresente(claims, usuario, ClaimTypes.Name, "unique_name");
             AdicionarSePresente(claims, usuario, ClaimTypes.Email, "email");
-            AdicionarSePresente(claims, usuario, "role", "role");
             AdicionarSePresente(claims, usuario, "admin", "admin");
             AdicionarSePresente(claims, usuario, SidClaim, SidClaim);
 
@@ -540,7 +561,6 @@ namespace Wyvern.Application.Services
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
-                Papel = user.Papel,
                 FotoVersao = user.FotoVersao,
                 PodeCriarCampanha = (await _planos.ContaAsync(user.UsuarioId)).PodeCriarCampanha,
                 Token = GenerateJwtToken(user, familiaId),
@@ -559,7 +579,6 @@ namespace Wyvern.Application.Services
                 new Claim(ClaimTypes.NameIdentifier, user.UsuarioId.ToString()),
                 new Claim(ClaimTypes.Name, user.Nome),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim("role", user.Papel ?? "Jogador"),
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString("N")), // cada emissão é um token distinto
                 new Claim(SidClaim, sessaoId.ToString())
             };

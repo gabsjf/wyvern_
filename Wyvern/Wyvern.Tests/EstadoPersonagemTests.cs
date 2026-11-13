@@ -23,8 +23,9 @@ public class EstadoPersonagemTests : IClassFixture<WyvernApiFactory>
         var resposta = await cliente.PostAsJsonAsync("/Personagem", new
         {
             nome = "Lyra", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Mago", nivel = 5, raca = "Elfo" },
-            personagemCombate = new { vidaMaxima = 40, vidaAtual = 30, condicoes = "Caído" },
+            personagemPlayer = new { classe = "Mago", nivel = 5, raca = "Elfo", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 40, vidaAtual = 30, condicoes = "Caído", deslocamento = "9m" },
             personagemConjuracao = new { atributoConjuracao = "Inteligencia", slotsNivel1Max = 3, slotsNivel1Atual = 3, slotsNivel2Max = 2, slotsNivel2Atual = 2 },
         });
         resposta.EnsureSuccessStatusCode();
@@ -117,8 +118,9 @@ public class EspacosDeMagiaNovosTests : IClassFixture<WyvernApiFactory>
         var criado = await mestre.PostAsJsonAsync("/Personagem", new
         {
             nome = "Lyra", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Maga", nivel = 5, raca = "Elfa" },
-            personagemCombate = new { vidaMaxima = 20, vidaAtual = 20 },
+            personagemPlayer = new { classe = "Maga", nivel = 5, raca = "Elfa", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 20, vidaAtual = 20, deslocamento = "9m" },
             personagemConjuracao = new { atributoConjuracao = "Inteligencia", slotsNivel1Max = 4, slotsNivel1Atual = 0, slotsNivel2Max = 3, slotsNivel2Atual = 1 },
         });
         var id = (await criado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();

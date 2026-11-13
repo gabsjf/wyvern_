@@ -27,7 +27,7 @@ namespace Wyvern.Infrastructure.Repositories.Campanha
                 .Include(c => c.Mestre)
                 .Include(c => c.Sessoes)
                 .Include(c => c.Membros)
-                .Where(c => c.Ativo && c.Membros!.Any(m => m.UsuarioId == userId));
+                .Where(Visibilidade.DaCampanha(userId));
         }
 
         public async Task<IEnumerable<CampanhaEntity>> GetCampanhasAsync()

@@ -140,8 +140,9 @@ public class ExclusaoDeContaTests : IClassFixture<WyvernApiFactory>
         var criado = await jogador.Client.PostAsJsonAsync("/Personagem", new
         {
             nome = "Thorin", campanhaId, tipoId = 1,
-            personagemPlayer = new { classe = "Guerreiro", nivel = 1, raca = "Anão" },
-            personagemCombate = new { vidaMaxima = 12, vidaAtual = 12, dadoVidaMaximo = "1d10" },
+            personagemPlayer = new { classe = "Guerreiro", nivel = 1, raca = "Anão", antecedente = "Soldado", subclasse = "Campeão" },
+            atributo = Fichas.Atributos,
+            personagemCombate = new { classeArmadura = 14, vidaMaxima = 12, vidaAtual = 12, dadoVidaMaximo = "1d10", deslocamento = "9m" },
         });
         var personagemId = (await criado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
 

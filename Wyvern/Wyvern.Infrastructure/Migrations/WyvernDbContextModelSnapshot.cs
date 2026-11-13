@@ -510,6 +510,197 @@ namespace Wyvern.Infrastructure.Migrations
                     b.ToTable("MarcadoresCena");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.Modelo3d", b =>
+                {
+                    b.Property<int>("ModeloId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ModeloId"));
+
+                    b.Property<int>("CampanhaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Categoria")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("EnviadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Escala")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)")
+                        .HasDefaultValue("Auto");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(80)
+                        .HasColumnType("character varying(80)");
+
+                    b.Property<long>("Tamanho")
+                        .HasColumnType("bigint");
+
+                    b.HasKey("ModeloId");
+
+                    b.HasIndex("EnviadoPorId");
+
+                    b.HasIndex("CampanhaId", "Categoria");
+
+                    b.ToTable("Modelos3d");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.Modelo3dArquivo", b =>
+                {
+                    b.Property<int>("ModeloId")
+                        .HasColumnType("integer");
+
+                    b.Property<byte[]>("Dados")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.HasKey("ModeloId");
+
+                    b.ToTable("Modelos3dArquivos");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.Mural", b =>
+                {
+                    b.Property<int>("MuralId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("MuralId"));
+
+                    b.Property<DateTime>("AtualizadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int>("CampanhaId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Conteudo")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<int?>("CriadoPorId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Versao")
+                        .HasColumnType("integer");
+
+                    b.HasKey("MuralId");
+
+                    b.HasIndex("CampanhaId");
+
+                    b.ToTable("Murais");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.MuralImagem", b =>
+                {
+                    b.Property<int>("MuralImagemId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("MuralImagemId"));
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<byte[]>("Dados")
+                        .IsRequired()
+                        .HasColumnType("bytea");
+
+                    b.Property<int>("MuralId")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Tipo")
+                        .IsRequired()
+                        .HasMaxLength(20)
+                        .HasColumnType("character varying(20)");
+
+                    b.HasKey("MuralImagemId");
+
+                    b.HasIndex("MuralId");
+
+                    b.ToTable("MuralImagens");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.ObjetoCena", b =>
+                {
+                    b.Property<int>("ObjetoId")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("ObjetoId"));
+
+                    b.Property<int>("CenaId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("Coluna")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("EscalaX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("EscalaY")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("EscalaZ")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("GiroX")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("GiroZ")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Linha")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("ModeloId")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("Oculto")
+                        .HasColumnType("boolean");
+
+                    b.Property<double>("Rotacao")
+                        .HasColumnType("double precision");
+
+                    b.Property<int>("Tamanho")
+                        .HasColumnType("integer");
+
+                    b.Property<double>("X")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Y")
+                        .HasColumnType("double precision");
+
+                    b.Property<double>("Z")
+                        .HasColumnType("double precision");
+
+                    b.HasKey("ObjetoId");
+
+                    b.HasIndex("CenaId");
+
+                    b.HasIndex("ModeloId");
+
+                    b.ToTable("ObjetosCena");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.ParedeCena", b =>
                 {
                     b.Property<int>("ParedeId")
@@ -737,6 +928,9 @@ namespace Wyvern.Infrastructure.Migrations
                         .IsRequired()
                         .HasColumnType("text");
 
+                    b.Property<int?>("ModeloId")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Nome")
                         .IsRequired()
                         .HasColumnType("text");
@@ -749,6 +943,8 @@ namespace Wyvern.Infrastructure.Migrations
                     b.HasIndex("CampanhaId");
 
                     b.HasIndex("CriadoPorId");
+
+                    b.HasIndex("ModeloId");
 
                     b.HasIndex("TipoId");
 
@@ -1265,6 +1461,9 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<int>("Nivel")
                         .HasColumnType("integer");
 
+                    b.Property<int>("NivelLiberado")
+                        .HasColumnType("integer");
+
                     b.Property<string>("Raca")
                         .IsRequired()
                         .HasColumnType("text");
@@ -1491,6 +1690,9 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<int>("Linha")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("ModeloId")
+                        .HasColumnType("integer");
+
                     b.Property<int>("MovimentoGasto")
                         .HasColumnType("integer");
 
@@ -1512,6 +1714,9 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Property<int?>("PersonagemId")
                         .HasColumnType("integer");
 
+                    b.Property<double>("Rotacao")
+                        .HasColumnType("double precision");
+
                     b.Property<int>("Tamanho")
                         .HasColumnType("integer");
 
@@ -1523,6 +1728,8 @@ namespace Wyvern.Infrastructure.Migrations
                     b.HasIndex("CenaId");
 
                     b.HasIndex("ControladoPorId");
+
+                    b.HasIndex("ModeloId");
 
                     b.HasIndex("ParticipanteId");
 
@@ -1618,10 +1825,6 @@ namespace Wyvern.Infrastructure.Migrations
                         .HasColumnType("integer");
 
                     b.Property<string>("Nome")
-                        .IsRequired()
-                        .HasColumnType("text");
-
-                    b.Property<string>("Papel")
                         .IsRequired()
                         .HasColumnType("text");
 
@@ -1843,6 +2046,76 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Navigation("Cena");
                 });
 
+            modelBuilder.Entity("Wyvern.Domain.Entities.Modelo3d", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Campanha", "Campanha")
+                        .WithMany()
+                        .HasForeignKey("CampanhaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wyvern.Domain.Entities.Usuario", "EnviadoPor")
+                        .WithMany()
+                        .HasForeignKey("EnviadoPorId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Campanha");
+
+                    b.Navigation("EnviadoPor");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.Modelo3dArquivo", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Modelo3d", "Modelo")
+                        .WithOne()
+                        .HasForeignKey("Wyvern.Domain.Entities.Modelo3dArquivo", "ModeloId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Modelo");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.Mural", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Campanha", "Campanha")
+                        .WithMany()
+                        .HasForeignKey("CampanhaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Campanha");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.MuralImagem", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Mural", "Mural")
+                        .WithMany()
+                        .HasForeignKey("MuralId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Mural");
+                });
+
+            modelBuilder.Entity("Wyvern.Domain.Entities.ObjetoCena", b =>
+                {
+                    b.HasOne("Wyvern.Domain.Entities.Cena", "Cena")
+                        .WithMany()
+                        .HasForeignKey("CenaId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Wyvern.Domain.Entities.Modelo3d", "Modelo")
+                        .WithMany()
+                        .HasForeignKey("ModeloId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Cena");
+
+                    b.Navigation("Modelo");
+                });
+
             modelBuilder.Entity("Wyvern.Domain.Entities.ParedeCena", b =>
                 {
                     b.HasOne("Wyvern.Domain.Entities.Cena", "Cena")
@@ -1884,6 +2157,11 @@ namespace Wyvern.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("Wyvern.Domain.Entities.Modelo3d", "Modelo")
+                        .WithMany()
+                        .HasForeignKey("ModeloId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Wyvern.Domain.Entities.TipoPersonagem", "Tipo")
                         .WithMany()
                         .HasForeignKey("TipoId")
@@ -1893,6 +2171,8 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Navigation("Campanha");
 
                     b.Navigation("CriadoPor");
+
+                    b.Navigation("Modelo");
 
                     b.Navigation("Tipo");
                 });
@@ -2105,6 +2385,11 @@ namespace Wyvern.Infrastructure.Migrations
                         .HasForeignKey("ControladoPorId")
                         .OnDelete(DeleteBehavior.SetNull);
 
+                    b.HasOne("Wyvern.Domain.Entities.Modelo3d", "Modelo")
+                        .WithMany()
+                        .HasForeignKey("ModeloId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("Wyvern.Domain.Entities.CombateParticipante", "Participante")
                         .WithMany()
                         .HasForeignKey("ParticipanteId")
@@ -2118,6 +2403,8 @@ namespace Wyvern.Infrastructure.Migrations
                     b.Navigation("Cena");
 
                     b.Navigation("ControladoPor");
+
+                    b.Navigation("Modelo");
 
                     b.Navigation("Participante");
 

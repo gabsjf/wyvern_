@@ -33,13 +33,13 @@ namespace Wyvern.Domain.Entities
         public int? SessaoId { get; set; }
         public Sessao? Sessao { get; set; }
 
-        /// <summary>No combate, o jogador só move o token de quem está na vez.</summary>
-        public bool SoNoTurno { get; set; }
+        /// <summary>No combate, o jogador só move o token de quem está na vez (ligado nas cenas novas).</summary>
+        public bool SoNoTurno { get; set; } = true;
 
         /// <summary>Quantos metros vale um quadrado da grade (5 pés = 1,5 m no D&D).</summary>
         public double MetrosPorQuadrado { get; set; } = 1.5;
 
-        /// <summary>No combate, o jogador só anda o deslocamento da ficha por rodada.</summary>
+        /// <summary>No combate, o jogador só anda o deslocamento da ficha por turno.</summary>
         public bool LimitarDeslocamento { get; set; } = true;
 
         /// <summary>Muda a cada troca de imagem; serve de ETag para o navegador guardar o mapa.</summary>
@@ -171,6 +171,9 @@ namespace Wyvern.Domain.Entities
         /// <summary>Lado, em quadrados (1 = médio, 2 = grande, 3 = enorme, 4 = imenso).</summary>
         public int Tamanho { get; set; } = 1;
 
+        /// <summary>Para onde a miniatura 3D olha: graus em volta do eixo vertical, sentido horário visto de cima (0 a 360).</summary>
+        public double Rotacao { get; set; }
+
         /// <summary>Chave da paleta de cores (ver PaletaDeTokens); o desenho fica no front.</summary>
         [StringLength(12)]
         public string Cor { get; set; } = "ouro";
@@ -195,6 +198,10 @@ namespace Wyvern.Domain.Entities
 
         /// <summary>Escondido dos jogadores: eles nem recebem o token.</summary>
         public bool Oculto { get; set; }
+
+        /// <summary>Miniatura 3D só deste token; nula = usa a do personagem (se houver).</summary>
+        public int? ModeloId { get; set; }
+        public Modelo3d? Modelo { get; set; }
 
         public int? PersonagemId { get; set; }
         public Personagem? Personagem { get; set; }

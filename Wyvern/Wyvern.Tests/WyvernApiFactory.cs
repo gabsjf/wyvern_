@@ -79,9 +79,9 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
     }
 
     /// <summary>Cadastra, confirma o e-mail pelo link e entra: devolve a resposta do login (com a sessão), como o fluxo real.</summary>
-    public async Task<HttpResponseMessage> CadastrarEEntrarAsync(HttpClient client, string email, string nome = "Teste", string senha = "senha123", string? papel = null)
+    public async Task<HttpResponseMessage> CadastrarEEntrarAsync(HttpClient client, string email, string nome = "Teste", string senha = "senha123")
     {
-        var cadastro = await client.PostAsJsonAsync("/Auth/register", new { nome, email, senha, papel });
+        var cadastro = await client.PostAsJsonAsync("/Auth/register", new { nome, email, senha });
         cadastro.EnsureSuccessStatusCode();
         var confirmacao = await client.PostAsJsonAsync("/Auth/confirmar-email", new { token = TokenDeConfirmacao(email) });
         confirmacao.EnsureSuccessStatusCode();
@@ -94,7 +94,7 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
         try { File.Delete(_dbPath); } catch (IOException) { }
     }
 
-    public record Sessao(int UsuarioId, string Papel, string Token);
+    public record Sessao(int UsuarioId, string Token);
 
     /// <summary>
     /// Cliente como o navegador: guarda o cookie de sessão sozinho e não manda o cabeçalho de cliente nativo,
@@ -104,12 +104,12 @@ public class WyvernApiFactory : WebApplicationFactory<Program>
         CreateClient(new Microsoft.AspNetCore.Mvc.Testing.WebApplicationFactoryClientOptions { HandleCookies = false });
 
     /// <summary>Cadastra um usuário novo e devolve um HttpClient já autenticado com o token dele (como o app nativo, que recebe o token no corpo).</summary>
-    public async Task<(HttpClient client, Sessao sessao)> NovoUsuarioAsync(string? papel = "Mestre")
+    public async Task<(HttpClient client, Sessao sessao)> NovoUsuarioAsync()
     {
         var client = CreateClient();
         client.DefaultRequestHeaders.Add("X-Wyvern-Client", "native");
         var email = $"{Guid.NewGuid():N}@teste.com";
-        var resposta = await CadastrarEEntrarAsync(client, email, papel: papel);
+        var resposta = await CadastrarEEntrarAsync(client, email);
         resposta.EnsureSuccessStatusCode();
 
         var corpo = (await resposta.Content.ReadFromJsonAsync<Sessao>())!;

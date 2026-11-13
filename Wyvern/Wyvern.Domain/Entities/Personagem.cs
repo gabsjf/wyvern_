@@ -32,6 +32,10 @@ namespace Wyvern.Domain.Entities
         public PersonagemDinheiro? PersonagemDinheiro { get; set; }
         public ICollection<PersonagemAtaque>? PersonagemAtaques { get; set; }
 
+        /// <summary>Miniatura 3D da biblioteca da campanha; todo token do personagem aparece com ela na visão 3D.</summary>
+        public int? ModeloId { get; set; }
+        public Modelo3d? Modelo { get; set; }
+
         public PersonagemNpc? PersonagemNpc { get; set; }
         public ICollection<PersonagemAcaoPadrao>? PersonagemAcoesPadrao { get; set; }
         public ICollection<PersonagemAcaoBonus>? PersonagemAcoesBonus { get; set; }

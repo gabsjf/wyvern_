@@ -27,7 +27,8 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .Include(p => p.PersonagemCombate)
                 .Include(p => p.PersonagemNpc) // a fórmula de PV dos monstros é usada na preparação do combate
                 .Include(p => p.Campanha)
-                .Where(p => p.Ativo && p.Campanha.Membros!.Any(m => m.UsuarioId == _currentUser.UserId && (p.CriadoPorId == _currentUser.UserId || m.Papel == PapelCampanha.Mestre)))
+                .Include(p => p.CriadoPor) // o Mestre vê de quem é cada personagem
+                .Where(Visibilidade.DoPersonagem(_currentUser.UserId))
                 .ToListAsync();
         }
 
@@ -51,6 +52,7 @@ namespace Wyvern.Infrastructure.Repositories.Personagem
                 .Include(p => p.PersonagemConjuracao)
                 .Include(p => p.PersonagemPericias!)
                     .ThenInclude(pp => pp.Pericia)
+                .Include(p => p.CriadoPor) // o PDF exportado traz o nome do jogador
                 .AsSplitQuery()
                 .Include(p => p.Campanha)
                 .FirstOrDefaultAsync(p => p.PersonagemId == id && p.Ativo && p.Campanha.Membros!.Any(m => m.UsuarioId == _currentUser.UserId && (p.CriadoPorId == _currentUser.UserId || m.Papel == PapelCampanha.Mestre)));

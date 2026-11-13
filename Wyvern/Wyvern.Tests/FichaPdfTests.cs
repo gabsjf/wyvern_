@@ -73,9 +73,10 @@ public class FichaPdfMapperTests
         Assert.Equal("Kaelith Vorn", t["CharacterName"]);
         Assert.Equal("Bardo 5", t["ClassLevel"]);
         Assert.Equal("Meio-elfo", t["Race"]);
-        Assert.Equal("8", t["STR"]);
-        Assert.Equal("-1", t["STRmod"]);
-        Assert.Equal("+4", t["CHamod"]);
+        Assert.Equal("-1", t["STR"]);      // quadrado grande: modificador
+        Assert.Equal("8", t["STRmod"]);    // oval: pontuação
+        Assert.Equal("18", t["CHamod"]);
+        Assert.Equal("+4", t["CHA"]);
         Assert.Equal("15", t["AC"]);
         Assert.Equal("+3", t["ProfBonus"]);
         Assert.Equal("+2", t["Initiative"]);   // sem iniciativa cadastrada: usa o modificador de Destreza
@@ -221,7 +222,8 @@ public class PdfExportPontaAPontaTests
         Assert.Equal("Kaelith Vorn", campos["CharacterName"]);
         Assert.Equal("Bardo 5", campos["ClassLevel"]);
         Assert.Equal("Meio-elfo", campos["Race"]);        // o campo do modelo se chama "Race " (com espaço)
-        Assert.Equal("-1", campos["STRmod"]);
+        Assert.Equal("8", campos["STRmod"]);       // pontuação no oval
+        Assert.Equal("-1", campos["STR"]);         // modificador no quadrado grande
         Assert.Equal("38", campos["HPMax"]);
         Assert.Equal("Zombaria Viciosa", campos["Spells 1014"]);
         Assert.Contains("Alaúde", campos["Equipment"]);   // acento preservado

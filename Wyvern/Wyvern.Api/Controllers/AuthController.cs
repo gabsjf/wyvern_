@@ -46,6 +46,14 @@ namespace Wyvern.Api.Controllers
             }
         }
 
+        [HttpPost("reenviar-confirmacao")]
+        public async Task<IActionResult> ReenviarConfirmacao([FromBody] EsqueciSenhaDto dto)
+        {
+            // Mesma resposta exista a conta ou não, confirmada ou não.
+            await _authService.ReenviarConfirmacaoAsync(dto.Email);
+            return Accepted(new { message = "Se esse e-mail tiver um cadastro esperando confirmação, enviamos um link novo. Verifique a sua caixa de entrada." });
+        }
+
         /// <summary>Clique no link enviado ao e-mail novo pela tela de perfil; não precisa estar logado (pode abrir em outro aparelho).</summary>
         [HttpPost("confirmar-troca-email")]
         public async Task<IActionResult> ConfirmarTrocaEmail([FromBody] ConfirmarEmailDto dto)
@@ -96,6 +104,10 @@ namespace Wyvern.Api.Controllers
                 Response.Headers.RetryAfter = ((int)Math.Ceiling(ex.Espera.TotalSeconds)).ToString();
                 return StatusCode(StatusCodes.Status429TooManyRequests, new { message = ex.Message });
             }
+            catch (EmailNaoConfirmadoException ex)
+            {
+                return Unauthorized(new { message = ex.Message, codigo = EmailNaoConfirmadoException.Codigo });
+            }
             catch (RegraNegocioException ex)
             {
                 return Unauthorized(new { message = ex.Message });
@@ -121,7 +133,6 @@ namespace Wyvern.Api.Controllers
                 UsuarioId = user.UsuarioId,
                 Nome = user.Nome,
                 Email = user.Email,
-                Papel = user.Papel ?? "Jogador",
                 FotoVersao = user.FotoVersao,
                 PodeCriarCampanha = (await planos.ContaAsync(user.UsuarioId)).PodeCriarCampanha
             });

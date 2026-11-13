@@ -39,6 +39,41 @@ namespace Wyvern.Application.Services
             PersonagemPericias = origem.PersonagemPericias?.Select(p => new PersonagemPericia { PericiaId = p.PericiaId, Bonus = p.Bonus }).ToList(),
         };
 
+        /// <summary>
+        /// Um herói que chega a outra mesa começa "descansado": PV cheios, sem PV temporários, condições, salvaguardas
+        /// de morte, inspiração nem dados de vida gastos, e com os espaços de magia de volta. O nível fica como estava,
+        /// mas sem subida pendente: o que o Mestre anterior liberou não vale na mesa nova.
+        /// </summary>
+        public static void PrepararParaNovaCampanha(Personagem personagem)
+        {
+            if (personagem.PersonagemCombate is { } combate)
+            {
+                combate.VidaAtual = combate.VidaMaxima;
+                combate.VidaTemporaria = 0;
+                combate.DadoVidaGasto = 0;
+                combate.DeathSaveSucessos = 0;
+                combate.DeathSaveFalhas = 0;
+                combate.InspiracaoHeroica = false;
+                combate.Condicoes = string.Empty;
+            }
+
+            if (personagem.PersonagemConjuracao is { } c)
+            {
+                c.SlotsNivel1Atual = c.SlotsNivel1Max;
+                c.SlotsNivel2Atual = c.SlotsNivel2Max;
+                c.SlotsNivel3Atual = c.SlotsNivel3Max;
+                c.SlotsNivel4Atual = c.SlotsNivel4Max;
+                c.SlotsNivel5Atual = c.SlotsNivel5Max;
+                c.SlotsNivel6Atual = c.SlotsNivel6Max;
+                c.SlotsNivel7Atual = c.SlotsNivel7Max;
+                c.SlotsNivel8Atual = c.SlotsNivel8Max;
+                c.SlotsNivel9Atual = c.SlotsNivel9Max;
+            }
+
+            if (personagem.PersonagemPlayer is { } player)
+                player.NivelLiberado = player.Nivel;
+        }
+
         private static List<T>? CopiarLista<T>(IEnumerable<T>? origem) where T : class, new() =>
             origem?.Select(Copiar).Select(c => c!).ToList();
 

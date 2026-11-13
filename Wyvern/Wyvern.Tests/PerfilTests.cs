@@ -18,7 +18,7 @@ public class PerfilTests : IClassFixture<WyvernApiFactory>
     public PerfilTests(WyvernApiFactory factory) => _factory = factory;
 
     private record Sessao(int UsuarioId, string Token, string RefreshToken);
-    private record Conta(string Tipo, bool Beta);
+    private record Conta(bool Beta);
     private record Perfil(int UsuarioId, string Nome, string Email, string? EmailPendente, int FotoVersao, Conta Conta);
     private record SessaoAtiva(Guid Id, string Dispositivo, bool Atual);
 
@@ -84,7 +84,6 @@ public class PerfilTests : IClassFixture<WyvernApiFactory>
         var perfil = await PerfilAsync(sessao.Token);
         Assert.Equal(email, perfil.Email);
         Assert.Equal(0, perfil.FotoVersao);
-        Assert.Equal("Mestre", perfil.Conta.Tipo); // no beta toda conta é Mestre
         Assert.True(perfil.Conta.Beta);
 
         var troca = await ClienteNativo(sessao.Token).PutAsJsonAsync("/Usuario/me/nome", new { nome = "  Joana Tempestade  " });
@@ -193,6 +192,46 @@ public class PerfilTests : IClassFixture<WyvernApiFactory>
         Assert.Equal(HttpStatusCode.Unauthorized, (await ClienteNativo().PostAsJsonAsync("/Auth/refresh", new { outra.RefreshToken })).StatusCode);
 
         Assert.Equal(HttpStatusCode.Unauthorized, (await EntrarAsync(email, "senha123")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await EntrarAsync(email, "nova-senha-1")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Trocar_a_senha_avisa_por_email_com_o_caminho_para_reagir()
+    {
+        var email = NovoEmail();
+        var sessao = await CadastrarAsync(email);
+
+        (await ClienteNativo(sessao.Token).PostAsJsonAsync("/Usuario/me/senha", new { senhaAtual = "senha123", novaSenha = "nova-senha-1" })).EnsureSuccessStatusCode();
+
+        var aviso = _factory.Emails.Para(email).Last();
+        Assert.StartsWith("A senha da sua conta foi alterada", aviso.Assunto);
+        Assert.Contains("/esqueci-senha", aviso.Corpo);
+        Assert.DoesNotContain("nova-senha-1", aviso.Corpo);
+    }
+
+    [Fact]
+    public async Task Nova_senha_igual_a_atual_e_recusada()
+    {
+        var sessao = await CadastrarAsync(NovoEmail());
+
+        var resposta = await ClienteNativo(sessao.Token).PostAsJsonAsync("/Usuario/me/senha", new { senhaAtual = "senha123", novaSenha = "senha123" });
+
+        Assert.Equal(HttpStatusCode.BadRequest, resposta.StatusCode);
+        Assert.Contains("diferente da atual", JsonDocument.Parse(await resposta.Content.ReadAsStringAsync()).RootElement.ToString());
+    }
+
+    [Fact]
+    public async Task Trocar_a_senha_invalida_um_link_de_redefinicao_pedido_antes()
+    {
+        var email = NovoEmail();
+        var sessao = await CadastrarAsync(email);
+        (await ClienteNativo().PostAsJsonAsync("/Auth/esqueci-senha", new { email })).EnsureSuccessStatusCode();
+        var link = _factory.TokenDeRedefinicao(email);
+
+        (await ClienteNativo(sessao.Token).PostAsJsonAsync("/Usuario/me/senha", new { senhaAtual = "senha123", novaSenha = "nova-senha-1" })).EnsureSuccessStatusCode();
+
+        var redefinir = await ClienteNativo().PostAsJsonAsync("/Auth/redefinir-senha", new { token = link, novaSenha = "outra-senha-2" });
+        Assert.Equal(HttpStatusCode.BadRequest, redefinir.StatusCode);
         Assert.Equal(HttpStatusCode.OK, (await EntrarAsync(email, "nova-senha-1")).StatusCode);
     }
 

@@ -32,8 +32,8 @@ public class MembrosTests : IClassFixture<WyvernApiFactory>
     [Fact]
     public async Task Papel_e_por_campanha_o_mesmo_usuario_e_Mestre_numa_e_Jogador_noutra()
     {
-        var (ana, sessaoAna) = await _factory.NovoUsuarioAsync(papel: "Jogador"); // papel global não importa
-        var (bia, _) = await _factory.NovoUsuarioAsync(papel: "Mestre");
+        var (ana, sessaoAna) = await _factory.NovoUsuarioAsync();
+        var (bia, _) = await _factory.NovoUsuarioAsync();
         var campanhaDaAna = await CriarCampanhaAsync(ana, "Da Ana");
         var campanhaDaBia = await CriarCampanhaAsync(bia, "Da Bia");
         await EntrarAsync(bia, ana, campanhaDaBia);
@@ -136,7 +136,7 @@ public class MembrosTests : IClassFixture<WyvernApiFactory>
         var campanhaId = await CriarCampanhaAsync(mestre);
         await EntrarAsync(mestre, jogador, campanhaId);
 
-        var criado = await jogador.PostAsJsonAsync("/Personagem", new { nome = "Herói", campanhaId, tipoId = 1 });
+        var criado = await jogador.PostAsJsonAsync("/Personagem", Fichas.Heroi("Herói", campanhaId));
         criado.EnsureSuccessStatusCode();
         var personagemId = (await criado.Content.ReadFromJsonAsync<JsonElement>()).GetProperty("personagemId").GetInt32();
         Assert.Equal(HttpStatusCode.OK, (await jogador.GetAsync($"/Personagem/{personagemId}")).StatusCode);
