@@ -29,6 +29,9 @@ namespace Wyvern.Infrastructure.Repositories.Cena
         public Task<CenaImagem?> GetImagemAsync(int cenaId) =>
             _context.CenaImagens.AsNoTracking().FirstOrDefaultAsync(i => i.CenaId == cenaId);
 
+        public Task<byte[]?> GetNeblinaAsync(int cenaId) =>
+            _context.CenaImagens.AsNoTracking().Where(i => i.CenaId == cenaId).Select(i => i.Neblina).FirstOrDefaultAsync();
+
         public Task<CenaImagem?> GetImagemParaEditarAsync(int cenaId) =>
             _context.CenaImagens.FirstOrDefaultAsync(i => i.CenaId == cenaId);
 

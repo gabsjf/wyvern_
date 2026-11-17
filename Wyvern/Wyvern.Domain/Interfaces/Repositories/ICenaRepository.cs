@@ -11,6 +11,8 @@ namespace Wyvern.Domain.Interfaces.Repositories.Cena
         Task<CenaImagem?> GetImagemAsync(int cenaId);
         /// <summary>A imagem com a névoa, rastreada, para gravar alterações.</summary>
         Task<CenaImagem?> GetImagemParaEditarAsync(int cenaId);
+        /// <summary>Só os quadrados revelados da névoa (sem os bytes da imagem), para decidir o que os jogadores enxergam.</summary>
+        Task<byte[]?> GetNeblinaAsync(int cenaId);
 
         Task<List<TokenCena>> GetTokensAsync(int cenaId);
         /// <summary>O token com a cena e o personagem (para saber quem é o dono).</summary>

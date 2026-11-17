@@ -1192,4 +1192,113 @@ public class CenaTests : IClassFixture<WyvernApiFactory>
 
         await Assert.ThrowsAsync<HubException>(() => hub.InvokeAsync("EntrarNaCena", campanhaId));
     }
+
+    // ---------- névoa no servidor: o que o jogador não enxerga não chega à rede ----------
+
+    [Fact]
+    public void Parede_no_caminho_tapa_a_visao_e_porta_aberta_nao()
+    {
+        var cena = new Wyvern.Domain.Entities.Cena { CenaId = 1, Ativa = true, NeblinaAtiva = true, Largura = 700, Altura = 700, TamanhoCelula = 70 };
+        var heroi = new Wyvern.Domain.Entities.TokenCena { TokenId = 1, Coluna = 1, Linha = 1, Visao = 30 }; // 6 quadrados
+        var goblin = new Wyvern.Domain.Entities.TokenCena { TokenId = 2, Coluna = 4, Linha = 1, Inimigo = true };
+        var parede = new Wyvern.Domain.Entities.ParedeCena { X1 = 3, Y1 = 0, X2 = 3, Y2 = 5 };
+        var nevoa = Wyvern.Application.DTOs.Cena.NeblinaRegras.Tudo(10, 10, revelar: false);
+
+        Assert.Contains(2, Wyvern.Application.DTOs.Cena.VisaoRegras.TokensVisiveisAosJogadores(cena, [heroi, goblin], [], nevoa));
+        Assert.DoesNotContain(2, Wyvern.Application.DTOs.Cena.VisaoRegras.TokensVisiveisAosJogadores(cena, [heroi, goblin], [parede], nevoa));
+
+        parede.Porta = true;
+        parede.Aberta = true;
+        Assert.Contains(2, Wyvern.Application.DTOs.Cena.VisaoRegras.TokensVisiveisAosJogadores(cena, [heroi, goblin], [parede], nevoa));
+    }
+
+    /// <summary>Mapa 10×10 em jogo, névoa ligada e tudo coberto; o jogador controla Brum (visão 10 pés) em (1,1).</summary>
+    private async Task<(HttpClient mestre, HttpClient jogador, WyvernApiFactory.Sessao sessaoMestre, WyvernApiFactory.Sessao sessaoJogador, int campanhaId, int cenaId)> MesaComNevoaAsync()
+    {
+        var (mestre, sessaoMestre) = await _factory.NovoUsuarioAsync();
+        var (jogador, sessaoJogador) = await _factory.NovoUsuarioAsync();
+        var campanhaId = await CriarCampanhaAsync(mestre);
+        await EntrarNaCampanhaAsync(mestre, jogador, campanhaId);
+        var cenaId = (await CriarCenaAsync(mestre, campanhaId)).GetProperty("cenaId").GetInt32();
+        (await mestre.PutAsJsonAsync($"/Campanha/{campanhaId}/Cenas/{cenaId}/neblina", new { ativa = true, tudo = "cobrir" })).EnsureSuccessStatusCode();
+        await CriarTokenAsync(mestre, campanhaId, cenaId,
+            new { nome = "Brum", coluna = 1, linha = 1, tamanho = 1, cor = "azul", visao = 10, controladoPorId = sessaoJogador.UsuarioId });
+        return (mestre, jogador, sessaoMestre, sessaoJogador, campanhaId, cenaId);
+    }
+
+    private static async Task<List<string>> NomesQueOJogadorVeAsync(HttpClient jogador, int campanhaId, int cenaId) =>
+        (await jogador.GetFromJsonAsync<JsonElement>($"/Campanha/{campanhaId}/Cenas/{cenaId}/tokens"))
+            .EnumerateArray().Select(t => t.GetProperty("nome").GetString()!).ToList();
+
+    [Fact]
+    public async Task Token_coberto_pela_nevoa_nao_vai_para_o_jogador()
+    {
+        var (mestre, jogador, sessaoMestre, _, campanhaId, cenaId) = await MesaComNevoaAsync();
+        await CriarTokenAsync(mestre, campanhaId, cenaId, new { nome = "Goblin", coluna = 8, linha = 8, tamanho = 1, cor = "carmim", inimigo = true });
+        await CriarTokenAsync(mestre, campanhaId, cenaId, new { nome = "Rato", coluna = 2, linha = 1, tamanho = 1, cor = "cinza", inimigo = true });
+
+        // Brum é dele; o rato está ao alcance da visão; o goblin, longe e coberto
+        Assert.Equal(new[] { "Brum", "Rato" }, (await NomesQueOJogadorVeAsync(jogador, campanhaId, cenaId)).Order());
+        Assert.Equal(3, (await mestre.GetFromJsonAsync<JsonElement>($"/Campanha/{campanhaId}/Cenas/{cenaId}/tokens")).GetArrayLength());
+
+        // o Mestre revela o quadrado do goblin: agora ele existe para o jogador
+        await using var hubMestre = await ConectarAsync(sessaoMestre.Token);
+        await hubMestre.InvokeAsync("EntrarNaCena", campanhaId);
+        await hubMestre.InvokeAsync("AlterarNeblina", campanhaId, cenaId, 8, 8, 1, 1, true);
+        Assert.Contains("Goblin", await NomesQueOJogadorVeAsync(jogador, campanhaId, cenaId));
+    }
+
+    [Fact]
+    public async Task Jogador_nao_recebe_os_passos_de_quem_anda_na_nevoa_e_recebe_quem_aparece()
+    {
+        var (mestre, _, sessaoMestre, sessaoJogador, campanhaId, cenaId) = await MesaComNevoaAsync();
+        var goblinId = (await CriarTokenAsync(mestre, campanhaId, cenaId, new { nome = "Goblin", coluna = 8, linha = 8, tamanho = 1, cor = "carmim", inimigo = true }))
+            .GetProperty("tokenId").GetInt32();
+
+        await using var hubMestre = await ConectarAsync(sessaoMestre.Token);
+        await using var hubJogador = await ConectarAsync(sessaoJogador.Token);
+        var movidos = new List<int>();
+        var apareceu = new TaskCompletionSource<JsonElement>();
+        var ping = new TaskCompletionSource();
+        hubJogador.On<JsonElement>("TokenMovido", m => { lock (movidos) movidos.Add(m.GetProperty("tokenId").GetInt32()); });
+        hubJogador.On<JsonElement>("TokenAtualizado", t => { if (t.GetProperty("tokenId").GetInt32() == goblinId) apareceu.TrySetResult(t); });
+        hubJogador.On<JsonElement>("Ping", _ => ping.TrySetResult());
+        await hubMestre.InvokeAsync("EntrarNaCena", campanhaId);
+        await hubJogador.InvokeAsync("EntrarNaCena", campanhaId);
+
+        // anda no escuro: nada vai para o jogador (o ping, depois, garante que um aviso já teria chegado)
+        await hubMestre.InvokeAsync("MoverToken", campanhaId, goblinId, 7, 8);
+        await hubMestre.InvokeAsync("Ping", campanhaId, cenaId, 10.0, 10.0);
+        await ping.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        lock (movidos) Assert.DoesNotContain(goblinId, movidos);
+
+        // chega perto de Brum: entra na visão dele e chega inteiro, já no quadrado novo
+        await hubMestre.InvokeAsync("MoverToken", campanhaId, goblinId, 2, 2);
+        var goblin = await apareceu.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.Equal((2, 2), (goblin.GetProperty("coluna").GetInt32(), goblin.GetProperty("linha").GetInt32()));
+    }
+
+    [Fact]
+    public async Task Jogador_ve_so_o_estado_da_vida_do_inimigo_no_combate()
+    {
+        var (mestre, _) = await _factory.NovoUsuarioAsync();
+        var (jogador, _) = await _factory.NovoUsuarioAsync();
+        var campanhaId = await CriarCampanhaAsync(mestre);
+        await EntrarNaCampanhaAsync(mestre, jogador, campanhaId);
+        var sessaoId = (await (await mestre.PostAsJsonAsync("/Sessao", new { numeroSessao = 1, nome = "S1", dataSessao = DateTime.Today, obs = "", campanhaId }))
+            .Content.ReadFromJsonAsync<JsonElement>()).GetProperty("sessaoId").GetInt32();
+        var combateId = (await (await mestre.PostAsJsonAsync("/Combate/start", new
+        {
+            sessaoId,
+            participantes = new object[] { new { nomeNPC = "Ogro", iniciativa = 10, vidaAtual = 30, vidaMaxima = 59, classeArmadura = 11, isInimigo = true, condicoes = "" } },
+        })).Content.ReadFromJsonAsync<JsonElement>()).GetProperty("combateId").GetInt32();
+
+        var visto = (await jogador.GetFromJsonAsync<JsonElement>($"/Combate/{combateId}/participantes"))[0];
+        Assert.Equal((60, 100, 0), (visto.GetProperty("vidaAtual").GetInt32(), visto.GetProperty("vidaMaxima").GetInt32(), visto.GetProperty("classeArmadura").GetInt32()));
+        var ativo = (await jogador.GetFromJsonAsync<JsonElement>($"/Combate/active/sessao/{sessaoId}")).GetProperty("participantes")[0];
+        Assert.Equal(100, ativo.GetProperty("vidaMaxima").GetInt32());
+
+        var real = (await mestre.GetFromJsonAsync<JsonElement>($"/Combate/{combateId}/participantes"))[0];
+        Assert.Equal((30, 59, 11), (real.GetProperty("vidaAtual").GetInt32(), real.GetProperty("vidaMaxima").GetInt32(), real.GetProperty("classeArmadura").GetInt32()));
+    }
 }
