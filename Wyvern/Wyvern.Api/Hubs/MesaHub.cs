@@ -1,11 +1,15 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Wyvern.Application.Services;
+using Wyvern.Domain.Entities;
 using Wyvern.Domain.Exceptions;
 
 namespace Wyvern.Api.Hubs
 {
-    /// <summary>A mesa ao vivo de uma campanha: quem participa vê, em tempo real, o que os outros rolam.</summary>
+    /// <summary>
+    /// A mesa ao vivo de uma campanha: quem participa vê, em tempo real, o que os outros rolam.
+    /// As rolagens do Mestre são secretas: vão só para o grupo dos Mestres, nunca para os jogadores.
+    /// </summary>
     [Authorize]
     public class MesaHub : Hub
     {
@@ -24,32 +28,34 @@ namespace Wyvern.Api.Hubs
         private string NomeUsuario => Context.User?.FindFirst("unique_name")?.Value ?? "Jogador";
 
         private static string Grupo(int campanhaId) => $"Mesa_{campanhaId}";
+        private static string GrupoDosMestres(int campanhaId) => $"Mesa_{campanhaId}_Mestres";
 
-        private async Task ExigirMembroAsync(int campanhaId)
-        {
-            if (!await _campanhaAuth.IsMembroAsync(campanhaId, UsuarioId))
-                throw new HubException("Campanha não encontrada.");
-        }
+        private async Task<PapelCampanha> ExigirMembroAsync(int campanhaId) =>
+            await _campanhaAuth.ObterPapelAsync(campanhaId, UsuarioId) ?? throw new HubException("Campanha não encontrada.");
 
         /// <summary>Entra na mesa da campanha e devolve as últimas rolagens.</summary>
         public async Task<IReadOnlyList<RolagemMesa>> EntrarNaMesa(int campanhaId)
         {
-            await ExigirMembroAsync(campanhaId);
+            var mestre = await ExigirMembroAsync(campanhaId) == PapelCampanha.Mestre;
             await Groups.AddToGroupAsync(Context.ConnectionId, Grupo(campanhaId));
-            return _historico.Recentes(campanhaId);
+            if (mestre) await Groups.AddToGroupAsync(Context.ConnectionId, GrupoDosMestres(campanhaId));
+            return _historico.Recentes(campanhaId, incluirSecretas: mestre);
         }
 
-        public Task SairDaMesa(int campanhaId) =>
-            Groups.RemoveFromGroupAsync(Context.ConnectionId, Grupo(campanhaId));
+        public async Task SairDaMesa(int campanhaId)
+        {
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, Grupo(campanhaId));
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, GrupoDosMestres(campanhaId));
+        }
 
         public async Task Rolar(int campanhaId, RolagemEntradaDto entrada)
         {
-            await ExigirMembroAsync(campanhaId);
+            var secreta = await ExigirMembroAsync(campanhaId) == PapelCampanha.Mestre;
 
             RolagemMesa rolagem;
             try
             {
-                rolagem = RolagemMesaFactory.Criar(UsuarioId!.Value, NomeUsuario, entrada);
+                rolagem = RolagemMesaFactory.Criar(UsuarioId!.Value, NomeUsuario, entrada, secreta: secreta);
             }
             catch (RegraNegocioException ex)
             {
@@ -57,7 +63,8 @@ namespace Wyvern.Api.Hubs
             }
 
             _historico.Adicionar(campanhaId, rolagem);
-            await Clients.Group(Grupo(campanhaId)).SendAsync("ReceberRolagem", rolagem);
+            var destino = secreta ? GrupoDosMestres(campanhaId) : Grupo(campanhaId);
+            await Clients.Group(destino).SendAsync("ReceberRolagem", rolagem);
         }
     }
 }
