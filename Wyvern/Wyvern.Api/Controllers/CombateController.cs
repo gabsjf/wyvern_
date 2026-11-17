@@ -25,10 +25,13 @@ namespace Wyvern.Api.Controllers
         private readonly ICurrentUserService _currentUser;
         private readonly ICampanhaAuthorizationService _campanhaAuth;
         private readonly ICronicaService _cronica;
+        private readonly ISincronizacaoDeCombate _sincronizacao;
 
         public CombateController(IUnitOfWork uof, IHubContext<CombatHub> hubContext, ICombateService combateService,
-            ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica)
+            ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica,
+            ISincronizacaoDeCombate sincronizacao)
         {
+            _sincronizacao = sincronizacao;
             _cronica = cronica;
             _uof = uof;
             _hubContext = hubContext;
@@ -57,6 +60,17 @@ namespace Wyvern.Api.Controllers
             return (combate, null);
         }
 
+        /// <summary>
+        /// Os combatentes na ordem da iniciativa. Para o jogador, os inimigos vêm sem PV e CA de verdade (só o estado da
+        /// vida): a tela já não mostrava, e agora nem a rede leva.
+        /// </summary>
+        private async Task<List<CombateParticipante>> ParaQuemPediuAsync(int campanhaId, IEnumerable<CombateParticipante> participantes)
+        {
+            var ordenados = Wyvern.Domain.Entities.Combate.Ordenar(participantes);
+            if (await _campanhaAuth.IsMestreAsync(campanhaId, _currentUser.UserId)) return ordenados;
+            return ordenados.Select(VisaoDoCombate.ParaJogador).ToList();
+        }
+
         [HttpGet("{id}/participantes")]
         public async Task<ActionResult<IEnumerable<CombateParticipanteDto>>> GetParticipantes(int id)
         {
@@ -64,7 +78,10 @@ namespace Wyvern.Api.Controllers
             if (erro != null) return erro;
             if (combate!.Participantes == null) return Ok(new List<CombateParticipanteDto>());
 
-            var result = Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes).Select(p => new CombateParticipanteDto
+            var mestre = await _campanhaAuth.IsMestreAsync(combate.Sessao!.CampanhaId, _currentUser.UserId);
+            var result = Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes)
+                .Select(p => mestre ? p : VisaoDoCombate.ParaJogador(p))
+                .Select(p => new CombateParticipanteDto
             {
                 ParticipanteId = p.ParticipanteId,
                 CombateId = p.CombateId,
@@ -92,10 +109,9 @@ namespace Wyvern.Api.Controllers
             var combate = await _uof.CombateRepository.GetActiveCombateByCampanhaAsync(campanhaId);
             if (combate == null) return Ok(null);
 
-            // Order participants by iniciativa descending when fetching
             if (combate.Participantes != null)
             {
-                combate.Participantes = Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes);
+                combate.Participantes = await ParaQuemPediuAsync(campanhaId, combate.Participantes);
             }
 
             return Ok(combate);
@@ -113,7 +129,7 @@ namespace Wyvern.Api.Controllers
 
             if (combate.Participantes != null)
             {
-                combate.Participantes = Wyvern.Domain.Entities.Combate.Ordenar(combate.Participantes);
+                combate.Participantes = await ParaQuemPediuAsync(sessao.CampanhaId, combate.Participantes);
             }
 
             return Ok(combate);
@@ -202,6 +218,14 @@ namespace Wyvern.Api.Controllers
                 }).ToList()
             };
 
+            // Heróis entram com o que está na ficha (PV, CA, condições...), e não com o que a tela mandou
+            foreach (var participante in combate.Participantes ?? [])
+            {
+                if (participante.PersonagemId is not { } personagemId) continue;
+                var ficha = await _uof.PersonagemRepository.GetPersonagemAsync(personagemId);
+                if (SincronizacaoDeCombate.Sincroniza(ficha)) SincronizacaoDeCombate.CopiarDaFicha(ficha!.PersonagemCombate!, participante);
+            }
+
             await _uof.CombateRepository.CreateCombateAsync(combate);
             await _uof.CommitAsync();
 
@@ -212,6 +236,7 @@ namespace Wyvern.Api.Controllers
 
             await _hubContext.Clients.Group($"Combate_{combate.CombateId}").SendAsync("ReceiveCombatUpdate");
             await _hubContext.Clients.Group($"Sessao_{sessaoId}").SendAsync("ReceiveCombatUpdate");
+            await _hubContext.Clients.Group($"Sessao_{sessaoId}").SendAsync("VezMudou");
             return Ok(combate);
         }
 
@@ -229,6 +254,7 @@ namespace Wyvern.Api.Controllers
             await _uof.CommitAsync();
             await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
             await _hubContext.Clients.Group($"Sessao_{combate!.SessaoId}").SendAsync("ReceiveCombatUpdate");
+            await _hubContext.Clients.Group($"Sessao_{combate.SessaoId}").SendAsync("VezMudou");
             return NoContent();
         }
 
@@ -242,6 +268,8 @@ namespace Wyvern.Api.Controllers
             if (combate != null && combate.Participantes != null && combate.Participantes.Any())
             {
                 await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
+                // quem está na sessão, em qualquer aba, fica sabendo que a vez passou (o aviso de "Sua vez" do jogador)
+                await _hubContext.Clients.Group($"Sessao_{combate.SessaoId}").SendAsync("VezMudou");
             }
             return NoContent();
         }
@@ -261,14 +289,28 @@ namespace Wyvern.Api.Controllers
             if (!isMestre && !ehProprioPersonagem)
                 return Proibido("Você só pode alterar o seu próprio personagem.");
 
+            var vidaAnterior = participante.VidaAtual;
             participante.VidaAtual = dto.VidaAtual;
             participante.Condicoes = dto.Condicoes ?? string.Empty;
             participante.SucessosMorte = dto.SucessosMorte;
             participante.FalhasMorte = dto.FalhasMorte;
-
             await _uof.CombateRepository.UpdateParticipanteAsync(participante);
+
+            // Herói: o que mudou no combate vai para a ficha (e dela para outro combate em que ele esteja)
+            var heroi = participante.PersonagemId is { } personagemId ? await _uof.PersonagemRepository.GetPersonagemAsync(personagemId) : null;
+            IReadOnlyList<Wyvern.Domain.Entities.Combate> outros = [];
+            if (SincronizacaoDeCombate.Sincroniza(heroi))
+            {
+                SincronizacaoDeCombate.LevarParaFicha(participante, vidaAnterior, heroi!.PersonagemCombate!);
+                await _uof.PersonagemRepository.UpdatePersonagemAsync(heroi);
+                outros = await _sincronizacao.LevarFichaAosCombatesAsync(heroi);
+            }
+
             await _uof.CommitAsync();
-            await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
+            if (heroi != null && SincronizacaoDeCombate.Sincroniza(heroi))
+                await _hubContext.AvisarAsync([combate!, .. outros], heroi.PersonagemId);
+            else
+                await _hubContext.Clients.Group($"Combate_{id}").SendAsync("ReceiveCombatUpdate");
             return NoContent();
         }
     }
