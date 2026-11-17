@@ -90,6 +90,14 @@ namespace Wyvern.Infrastructure.Repositories.Combate
                 .FirstOrDefaultAsync();
         }
 
+        public async Task<List<Wyvern.Domain.Entities.CombateParticipante>> GetParticipantesAtivosDoPersonagemAsync(int personagemId)
+        {
+            return await _context.Set<Wyvern.Domain.Entities.CombateParticipante>()
+                .Include(p => p.Combate)
+                .Where(p => p.PersonagemId == personagemId && p.Combate!.Ativo)
+                .ToListAsync();
+        }
+
         public Task<Wyvern.Domain.Entities.CombateParticipante> UpdateParticipanteAsync(Wyvern.Domain.Entities.CombateParticipante participante)
         {
             if (participante is null)

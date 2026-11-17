@@ -16,14 +16,15 @@ namespace Wyvern.Application.Services
         public int[] Dados { get; set; } = [];
     }
 
-    public record RolagemMesa(Guid Id, int UsuarioId, string Usuario, string? Personagem, string Rotulo, string Formula, int Total, int[] Dados, DateTime Quando);
+    /// <param name="Secreta">Rolagem do Mestre: só os Mestres da campanha recebem (os jogadores não veem nem pela rede).</param>
+    public record RolagemMesa(Guid Id, int UsuarioId, string Usuario, string? Personagem, string Rotulo, string Formula, int Total, int[] Dados, DateTime Quando, bool Secreta = false);
 
     public static class RolagemMesaFactory
     {
         public const int MaximoDados = 60;
 
         /// <summary>Confere os limites do que o cliente mandou e monta a rolagem que a mesa vai ver.</summary>
-        public static RolagemMesa Criar(int usuarioId, string usuario, RolagemEntradaDto entrada, DateTime? agora = null)
+        public static RolagemMesa Criar(int usuarioId, string usuario, RolagemEntradaDto entrada, DateTime? agora = null, bool secreta = false)
         {
             var rotulo = (entrada.Rotulo ?? string.Empty).Trim();
             var formula = (entrada.Formula ?? string.Empty).Trim();
@@ -37,7 +38,7 @@ namespace Wyvern.Application.Services
             if (dados.Any(d => d is < 1 or > 1000)) throw new RegraNegocioException("Resultado de dado inválido.");
             if (Math.Abs(entrada.Total) > 100_000) throw new RegraNegocioException("Total da rolagem fora do limite.");
 
-            return new RolagemMesa(Guid.NewGuid(), usuarioId, usuario, personagem, rotulo, formula, entrada.Total, dados, agora ?? DateTime.UtcNow);
+            return new RolagemMesa(Guid.NewGuid(), usuarioId, usuario, personagem, rotulo, formula, entrada.Total, dados, agora ?? DateTime.UtcNow, secreta);
         }
     }
 
@@ -58,11 +59,11 @@ namespace Wyvern.Application.Services
             }
         }
 
-        /// <summary>Da mais antiga para a mais recente.</summary>
-        public IReadOnlyList<RolagemMesa> Recentes(int campanhaId)
+        /// <summary>Da mais antiga para a mais recente. As secretas (do Mestre) só saem para quem pede com <paramref name="incluirSecretas"/>.</summary>
+        public IReadOnlyList<RolagemMesa> Recentes(int campanhaId, bool incluirSecretas = false)
         {
             if (!_porCampanha.TryGetValue(campanhaId, out var lista)) return [];
-            lock (lista) return lista.ToList();
+            lock (lista) return lista.Where(r => incluirSecretas || !r.Secreta).ToList();
         }
     }
 }

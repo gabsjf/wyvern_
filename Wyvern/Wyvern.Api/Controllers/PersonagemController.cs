@@ -27,10 +27,15 @@ namespace Wyvern.Api.Controllers
         private readonly ICampanhaAuthorizationService _campanhaAuth;
         private readonly ICronicaService _cronica;
         private readonly IHubContext<CenaHub> _hub;
+        private readonly IHubContext<CombatHub> _combatHub;
+        private readonly ISincronizacaoDeCombate _sincronizacao;
 
-        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica, IHubContext<CenaHub> hub)
+        public PersonagemController (IUnitOfWork uof, IMapper mapper, ICurrentUserService currentUser, ICampanhaAuthorizationService campanhaAuth, ICronicaService cronica, IHubContext<CenaHub> hub,
+            IHubContext<CombatHub> combatHub, ISincronizacaoDeCombate sincronizacao)
         {
             _hub = hub;
+            _combatHub = combatHub;
+            _sincronizacao = sincronizacao;
             _uof = uof;
             _mapper = mapper;
             _currentUser = currentUser;
@@ -268,7 +273,9 @@ namespace Wyvern.Api.Controllers
             }
 
             await _uof.PersonagemRepository.UpdatePersonagemAsync(pBanco);
+            var combates = await _sincronizacao.LevarFichaAosCombatesAsync(pBanco);
             await _uof.CommitAsync();
+            await _combatHub.AvisarAsync(combates, pBanco.PersonagemId);
             return Ok(_mapper.Map<PersonagemResponseDto>(pBanco));
         }
 
@@ -296,7 +303,9 @@ namespace Wyvern.Api.Controllers
             await _cronica.RegistrarAutomaticoAsync(personagem.CampanhaId, "Marco", $"{personagem.Nome} subiu para o nível {nivelNovo}", resumo);
 
             await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            var combates = await _sincronizacao.LevarFichaAosCombatesAsync(personagem);
             await _uof.CommitAsync();
+            await _combatHub.AvisarAsync(combates, personagem.PersonagemId);
             return Ok(new ResultadoSubidaDto
             {
                 Personagem = _mapper.Map<PersonagemResponseDto>(personagem),
@@ -356,7 +365,9 @@ namespace Wyvern.Api.Controllers
                 $"{personagem.Nome} fez um descanso {(longo ? "longo" : "curto")}", detalhe);
 
             await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            var combates = await _sincronizacao.LevarFichaAosCombatesAsync(personagem);
             await _uof.CommitAsync();
+            await _combatHub.AvisarAsync(combates, personagem.PersonagemId);
             return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
         }
 
@@ -434,7 +445,9 @@ namespace Wyvern.Api.Controllers
             EstadoPersonagemService.Aplicar(personagem, dto);
 
             await _uof.PersonagemRepository.UpdatePersonagemAsync(personagem);
+            var combates = await _sincronizacao.LevarFichaAosCombatesAsync(personagem);
             await _uof.CommitAsync();
+            await _combatHub.AvisarAsync(combates, personagem.PersonagemId);
             return Ok(_mapper.Map<PersonagemResponseDto>(personagem));
         }
 

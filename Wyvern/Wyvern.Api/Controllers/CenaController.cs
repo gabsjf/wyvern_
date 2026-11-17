@@ -221,6 +221,7 @@ namespace Wyvern.Api.Controllers
             if (ajuste.Tudo is not (null or "" or "revelar" or "cobrir"))
                 return BadRequest(new { message = "Use \"revelar\" ou \"cobrir\"." });
 
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena);
             var imagem = await _uof.CenaRepository.GetImagemParaEditarAsync(cenaId);
             cena.NeblinaAtiva = ajuste.Ativa;
             if (imagem != null && !string.IsNullOrEmpty(ajuste.Tudo))
@@ -231,6 +232,7 @@ namespace Wyvern.Api.Controllers
             await _uof.CommitAsync();
 
             await _hub.Clients.Group(CenaHub.GrupoDaMesa(campanhaId)).SendAsync("NeblinaAtualizada", new { cenaId });
+            await _hub.Clients.AvisarVisibilidadeAsync(_uof, cena, antes);
             return Ok(NeblinaRegras.Montar(cena, imagem?.Neblina));
         }
 
@@ -244,7 +246,9 @@ namespace Wyvern.Api.Controllers
             if (cena == null || (papel != PapelCampanha.Mestre && !cena.Ativa)) return NotFound("Cena não encontrada.");
 
             var tokens = await _uof.CenaRepository.GetTokensAsync(cenaId);
-            return Ok(tokens.Where(t => papel == PapelCampanha.Mestre || !t.Oculto).Select(TokenCenaDto.De));
+            if (papel == PapelCampanha.Mestre) return Ok(tokens.Select(TokenCenaDto.De));
+            var visiveis = await AvisosDoMapa.VisiveisAsync(_uof, cena);
+            return Ok(tokens.Where(t => visiveis.Contains(t.TokenId)).Select(TokenCenaDto.De));
         }
 
         [HttpPost("{cenaId:int}/tokens")]
@@ -259,13 +263,14 @@ namespace Wyvern.Api.Controllers
             var invalido = await ValidarTokenAsync(campanhaId, form);
             if (invalido != null) return invalido;
 
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena);
             var token = new TokenCena { CenaId = cenaId };
             Preencher(token, form, cena);
             await _uof.CenaRepository.AddTokensAsync([token]);
             await _uof.CommitAsync();
 
             var salvo = await _uof.CenaRepository.GetTokenAsync(cenaId, token.TokenId);
-            await AvisarTokenAtualizadoAsync(campanhaId, salvo!);
+            await _hub.Clients.AvisarTokenAsync(_uof, cena, antes, salvo!.TokenId, "TokenAtualizado", TokenCenaDto.De(salvo));
             return Ok(TokenCenaDto.De(salvo!));
         }
 
@@ -281,15 +286,13 @@ namespace Wyvern.Api.Controllers
             var invalido = await ValidarTokenAsync(campanhaId, form);
             if (invalido != null) return invalido;
 
-            var ficavaVisivel = !token.Oculto;
+            // esconder, mudar a visão ou o tamanho muda o que os jogadores enxergam: quem some sai da tela deles
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, token.Cena);
             Preencher(token, form, token.Cena);
             await _uof.CommitAsync();
 
             var salvo = await _uof.CenaRepository.GetTokenAsync(cenaId, tokenId);
-            // escondido agora: os jogadores perdem o token antes de o Mestre receber a versão nova
-            if (ficavaVisivel && salvo!.Oculto)
-                await _hub.Clients.Group(CenaHub.GrupoDaMesa(campanhaId)).SendAsync("TokenRemovido", new { tokenId, cenaId });
-            await AvisarTokenAtualizadoAsync(campanhaId, salvo!);
+            await _hub.Clients.AvisarTokenAsync(_uof, token.Cena, antes, tokenId, "TokenAtualizado", TokenCenaDto.De(salvo!));
             return Ok(TokenCenaDto.De(salvo!));
         }
 
@@ -302,10 +305,14 @@ namespace Wyvern.Api.Controllers
             var token = await _uof.CenaRepository.GetTokenAsync(cenaId, tokenId);
             if (token?.Cena == null || token.Cena.CampanhaId != campanhaId) return NotFound("Token não encontrado.");
 
+            var cena = token.Cena;
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena);
             await _uof.CenaRepository.RemoveTokenAsync(token);
             await _uof.CommitAsync();
 
             await _hub.Clients.Group(CenaHub.GrupoDaMesa(campanhaId)).SendAsync("TokenRemovido", new { tokenId, cenaId });
+            antes.Remove(tokenId);
+            await _hub.Clients.AvisarVisibilidadeAsync(_uof, cena, antes); // sem a visão dele, outros podem sumir
             return NoContent();
         }
 
@@ -376,13 +383,18 @@ namespace Wyvern.Api.Controllers
                 novos.Add(token);
             }
 
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena);
             if (novos.Count > 0) await _uof.CenaRepository.AddTokensAsync(novos);
             if (novos.Count > 0 || ligados.Count > 0) await _uof.CommitAsync();
 
             // devolve (e anuncia) os tokens criados e também os que acabaram de ser ligados ao combate
             var salvos = (await _uof.CenaRepository.GetTokensAsync(cenaId))
                 .Where(t => ligados.Contains(t.TokenId) || novos.Any(n => n.TokenId == t.TokenId)).ToList();
-            foreach (var t in salvos) await AvisarTokenAtualizadoAsync(campanhaId, t);
+            foreach (var t in salvos)
+                await _hub.Clients.Group(CenaHub.GrupoDoMestre(campanhaId)).SendAsync("TokenAtualizado", TokenCenaDto.De(t));
+            var depois = await _hub.Clients.AvisarVisibilidadeAsync(_uof, cena, antes);
+            foreach (var t in salvos.Where(t => antes.Contains(t.TokenId) && depois.Contains(t.TokenId)))
+                await _hub.Clients.Group(CenaHub.GrupoDosJogadores(campanhaId)).SendAsync("TokenAtualizado", TokenCenaDto.De(t));
             return Ok(salvos.Select(TokenCenaDto.De));
         }
 
@@ -436,9 +448,5 @@ namespace Wyvern.Api.Controllers
         private Task AvisarCenaAtualizadaAsync(int campanhaId) =>
             _hub.Clients.Group(CenaHub.GrupoDaMesa(campanhaId)).SendAsync("CenaAtualizada");
 
-        /// <summary>Token novo ou alterado: os jogadores só recebem se ele estiver visível.</summary>
-        private Task AvisarTokenAtualizadoAsync(int campanhaId, TokenCena token) =>
-            _hub.Clients.Group(token.Oculto ? CenaHub.GrupoDoMestre(campanhaId) : CenaHub.GrupoDaMesa(campanhaId))
-                .SendAsync("TokenAtualizado", TokenCenaDto.De(token));
     }
 }

@@ -17,5 +17,7 @@ namespace Wyvern.Domain.Interfaces.Repositories.Combate
         Task<CombateEntity> UpdateCombateAsync(CombateEntity combate);
         Task<CombateEntity> DeleteCombateAsync(int id);
         Task<CombateParticipante> UpdateParticipanteAsync(CombateParticipante participante);
+        /// <summary>Os combatentes desse personagem em combates ativos, com o combate (para avisar as mesas).</summary>
+        Task<List<CombateParticipante>> GetParticipantesAtivosDoPersonagemAsync(int personagemId);
     }
 }

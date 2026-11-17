@@ -49,6 +49,7 @@ builder.Services.AddScoped<ICampanhaAuthorizationService, CampanhaAuthorizationS
 builder.Services.AddScoped<ICampanhaService, CampanhaService>();
 builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddScoped<ICombateService, CombateService>();
+builder.Services.AddScoped<ISincronizacaoDeCombate, SincronizacaoDeCombate>();
 builder.Services.AddScoped<ICronicaService, CronicaService>();
 
 builder.Services.AddHttpContextAccessor();

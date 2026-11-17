@@ -153,11 +153,12 @@ namespace Wyvern.Api.Controllers
             if (await _uof.CenaRepository.ContarParedesAsync(cenaId) >= LimiteDeParedes)
                 return BadRequest(new { message = $"Uma cena aceita até {LimiteDeParedes} paredes." });
 
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena!);
             var parede = new ParedeCena { CenaId = cenaId, X1 = form.X1, Y1 = form.Y1, X2 = form.X2, Y2 = form.Y2, Porta = form.Porta, Aberta = form.Porta && form.Aberta, Janela = form.Janela && !form.Porta };
             await _uof.CenaRepository.AddParedeAsync(parede);
             await _uof.CommitAsync();
 
-            await AvisarParedesAsync(campanhaId, cenaId);
+            await AvisarParedesAsync(cena!, antes);
             return Ok(ParedeDto.De(parede));
         }
 
@@ -173,28 +174,30 @@ namespace Wyvern.Api.Controllers
             var invalido = Validar(cena!, form);
             if (invalido != null) return invalido;
 
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena!);
             (parede.X1, parede.Y1, parede.X2, parede.Y2) = (form.X1, form.Y1, form.X2, form.Y2);
             parede.Porta = form.Porta;
             parede.Aberta = form.Porta && form.Aberta;
             parede.Janela = form.Janela && !form.Porta;
             await _uof.CommitAsync();
 
-            await AvisarParedesAsync(campanhaId, cenaId);
+            await AvisarParedesAsync(cena!, antes);
             return Ok(ParedeDto.De(parede));
         }
 
         [HttpDelete("paredes/{paredeId:int}")]
         public async Task<IActionResult> ExcluirParede(int campanhaId, int cenaId, int paredeId)
         {
-            var (_, _, erro) = await CarregarAsync(campanhaId, cenaId, true);
+            var (_, cena, erro) = await CarregarAsync(campanhaId, cenaId, true);
             if (erro != null) return erro;
 
             var parede = await _uof.CenaRepository.GetParedeAsync(cenaId, paredeId);
             if (parede == null) return NotFound("Parede não encontrada.");
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena!);
             await _uof.CenaRepository.RemoveParedeAsync(parede);
             await _uof.CommitAsync();
 
-            await AvisarParedesAsync(campanhaId, cenaId);
+            await AvisarParedesAsync(cena!, antes);
             return NoContent();
         }
 
@@ -208,8 +211,12 @@ namespace Wyvern.Api.Controllers
             return null;
         }
 
-        private Task AvisarParedesAsync(int campanhaId, int cenaId) =>
-            _hub.Clients.Group(CenaHub.GrupoDaMesa(campanhaId)).SendAsync("ParedesAtualizadas", new { cenaId });
+        /// <summary>Paredes e portas mudam a linha de visão: além de recarregar, os jogadores ganham ou perdem tokens.</summary>
+        private async Task AvisarParedesAsync(Cena cena, HashSet<int> antes)
+        {
+            await _hub.Clients.Group(CenaHub.GrupoDaMesa(cena.CampanhaId)).SendAsync("ParedesAtualizadas", new { cenaId = cena.CenaId });
+            await _hub.Clients.AvisarVisibilidadeAsync(_uof, cena, antes);
+        }
 
         // ---------- marcadores ----------
 
@@ -369,11 +376,13 @@ namespace Wyvern.Api.Controllers
         [HttpGet("tokens/{tokenId:int}/imagem")]
         public async Task<IActionResult> Retrato(int campanhaId, int cenaId, int tokenId)
         {
-            var (papel, _, erro) = await CarregarAsync(campanhaId, cenaId, false);
+            var (papel, cena, erro) = await CarregarAsync(campanhaId, cenaId, false);
             if (erro != null) return erro;
 
             var token = await _uof.CenaRepository.GetTokenAsync(cenaId, tokenId);
-            if (token == null || token.ImagemVersao == 0 || (papel != PapelCampanha.Mestre && token.Oculto))
+            if (token == null || token.ImagemVersao == 0) return NotFound("Imagem não encontrada.");
+            // o jogador só vê o retrato de quem ele enxerga (oculto ou perdido na névoa, não existe para ele)
+            if (papel != PapelCampanha.Mestre && !(await AvisosDoMapa.VisiveisAsync(_uof, cena!)).Contains(tokenId))
                 return NotFound("Imagem não encontrada.");
 
             var etag = $"\"t{tokenId}-{token.ImagemVersao}\"";
@@ -437,8 +446,12 @@ namespace Wyvern.Api.Controllers
             return Ok(TokenCenaDto.De(token));
         }
 
-        private Task AvisarTokenAsync(int campanhaId, TokenCena token) =>
-            _hub.Clients.Group(token.Oculto ? CenaHub.GrupoDoMestre(campanhaId) : CenaHub.GrupoDaMesa(campanhaId))
-                .SendAsync("TokenAtualizado", TokenCenaDto.De(token));
+        /// <summary>Retrato trocado: o Mestre sempre fica sabendo; os jogadores, só se enxergam o token.</summary>
+        private async Task AvisarTokenAsync(int campanhaId, TokenCena token)
+        {
+            var cena = await _uof.CenaRepository.GetAsync(campanhaId, token.CenaId);
+            var visiveis = await AvisosDoMapa.VisiveisAsync(_uof, cena!);
+            await _hub.Clients.AvisarTokenAsync(_uof, cena!, visiveis, token.TokenId, "TokenAtualizado", TokenCenaDto.De(token));
+        }
     }
 }

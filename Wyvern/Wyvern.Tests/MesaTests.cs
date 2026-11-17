@@ -65,6 +65,17 @@ public class MesaTests : IClassFixture<WyvernApiFactory>
         Assert.Empty(historico.Recentes(3));
     }
 
+    [Fact]
+    public void Historico_so_entrega_as_secretas_a_quem_pede()
+    {
+        var historico = new HistoricoRolagens();
+        historico.Adicionar(1, RolagemMesaFactory.Criar(1, "Jogador", Entrada(total: 10)));
+        historico.Adicionar(1, RolagemMesaFactory.Criar(2, "Mestre", Entrada(total: 20), secreta: true));
+
+        Assert.Equal([10], historico.Recentes(1).Select(r => r.Total));
+        Assert.Equal([10, 20], historico.Recentes(1, incluirSecretas: true).Select(r => r.Total));
+    }
+
     // ---------- o hub de verdade ----------
 
     private async Task<HubConnection> ConectarAsync(string token)
@@ -145,5 +156,46 @@ public class MesaTests : IClassFixture<WyvernApiFactory>
         var erro = await Assert.ThrowsAsync<HubException>(() => hub.InvokeAsync("Rolar", campanhaId, Entrada(rotulo: "")));
 
         Assert.Contains("rótulo", erro.Message);
+    }
+
+    [Fact]
+    public async Task Rolagem_do_mestre_nao_chega_aos_jogadores_nem_pelo_historico()
+    {
+        var (mestre, sessaoMestre) = await _factory.NovoUsuarioAsync();
+        var (jogador, sessaoJogador) = await _factory.NovoUsuarioAsync();
+        var campanhaId = await CriarCampanhaAsync(mestre);
+        await EntrarNaCampanhaAsync(mestre, jogador, campanhaId);
+
+        await using var hubMestre = await ConectarAsync(sessaoMestre.Token);
+        await using var hubJogador = await ConectarAsync(sessaoJogador.Token);
+        var doMestre = new TaskCompletionSource<RolagemMesa>();
+        var noJogador = new List<RolagemMesa>();
+        var doJogador = new TaskCompletionSource<RolagemMesa>();
+        hubMestre.On<RolagemMesa>("ReceberRolagem", r => { if (r.Rotulo == "Ataque do goblin") doMestre.TrySetResult(r); });
+        hubJogador.On<RolagemMesa>("ReceberRolagem", r =>
+        {
+            lock (noJogador) noJogador.Add(r);
+            if (r.Rotulo == "Furtividade") doJogador.TrySetResult(r);
+        });
+
+        await hubMestre.InvokeAsync<List<RolagemMesa>>("EntrarNaMesa", campanhaId);
+        await hubJogador.InvokeAsync<List<RolagemMesa>>("EntrarNaMesa", campanhaId);
+        await hubMestre.InvokeAsync("Rolar", campanhaId, Entrada("Ataque do goblin", "1d20+4", 23, [19]));
+        // a rolagem do jogador vem depois: quando ela chega, a do Mestre já teria chegado se tivesse sido enviada
+        await hubJogador.InvokeAsync("Rolar", campanhaId, Entrada("Furtividade", "1d20+5", 17, [12]));
+
+        var secreta = await doMestre.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        Assert.True(secreta.Secreta);
+        await doJogador.Task.WaitAsync(TimeSpan.FromSeconds(10));
+        lock (noJogador) Assert.DoesNotContain(noJogador, r => r.Rotulo == "Ataque do goblin");
+
+        await using var jogadorTardio = await ConectarAsync(sessaoJogador.Token);
+        var historicoJogador = await jogadorTardio.InvokeAsync<List<RolagemMesa>>("EntrarNaMesa", campanhaId);
+        Assert.DoesNotContain(historicoJogador, r => r.Rotulo == "Ataque do goblin");
+        Assert.Contains(historicoJogador, r => r.Rotulo == "Furtividade");
+
+        await using var mestreTardio = await ConectarAsync(sessaoMestre.Token);
+        var historicoMestre = await mestreTardio.InvokeAsync<List<RolagemMesa>>("EntrarNaMesa", campanhaId);
+        Assert.Contains(historicoMestre, r => r.Rotulo == "Ataque do goblin" && r.Secreta);
     }
 }

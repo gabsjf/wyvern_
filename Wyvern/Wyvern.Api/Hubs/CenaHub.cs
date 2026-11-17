@@ -8,8 +8,8 @@ using Wyvern.Domain.Interfaces.Repositories;
 namespace Wyvern.Api.Hubs
 {
     /// <summary>
-    /// O mapa ao vivo de uma campanha. Dois grupos por campanha: todos os membros, e só o Mestre (para o que os
-    /// jogadores não podem ver, como tokens ocultos). Criar, editar e apagar passa pela API REST, que avisa o grupo;
+    /// O mapa ao vivo de uma campanha. Três grupos por campanha: todos os membros, só o Mestre (para o que os
+    /// jogadores não podem ver, como tokens ocultos) e só os jogadores (os tokens que a névoa deixa ver; ver AvisosDoMapa). Criar, editar e apagar passa pela API REST, que avisa o grupo;
     /// mover passa por aqui, pela latência.
     /// </summary>
     [Authorize]
@@ -29,6 +29,7 @@ namespace Wyvern.Api.Hubs
 
         public static string GrupoDaMesa(int campanhaId) => $"Cena_{campanhaId}";
         public static string GrupoDoMestre(int campanhaId) => $"CenaMestre_{campanhaId}";
+        public static string GrupoDosJogadores(int campanhaId) => $"CenaJogadores_{campanhaId}";
 
         public async Task EntrarNaCena(int campanhaId)
         {
@@ -36,14 +37,15 @@ namespace Wyvern.Api.Hubs
             if (papel == null) throw new HubException("Campanha não encontrada.");
 
             await Groups.AddToGroupAsync(Context.ConnectionId, GrupoDaMesa(campanhaId));
-            if (papel == PapelCampanha.Mestre)
-                await Groups.AddToGroupAsync(Context.ConnectionId, GrupoDoMestre(campanhaId));
+            await Groups.AddToGroupAsync(Context.ConnectionId,
+                papel == PapelCampanha.Mestre ? GrupoDoMestre(campanhaId) : GrupoDosJogadores(campanhaId));
         }
 
         public async Task SairDaCena(int campanhaId)
         {
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, GrupoDaMesa(campanhaId));
             await Groups.RemoveFromGroupAsync(Context.ConnectionId, GrupoDoMestre(campanhaId));
+            await Groups.RemoveFromGroupAsync(Context.ConnectionId, GrupoDosJogadores(campanhaId));
         }
 
         /// <summary>O Mestre revela ou cobre um retângulo de quadrados. Vale para todos, na hora.</summary>
@@ -56,11 +58,13 @@ namespace Wyvern.Api.Hubs
             var imagem = cena == null ? null : await _uof.CenaRepository.GetImagemParaEditarAsync(cenaId);
             if (cena == null || imagem == null) throw new HubException("Cena não encontrada.");
 
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena);
             var (colunas, linhas) = NeblinaRegras.Dimensoes(cena);
             imagem.Neblina = NeblinaRegras.Aplicar(imagem.Neblina, colunas, linhas, coluna, linha, largura, altura, revelar);
             await _uof.CommitAsync();
 
             await Clients.Group(GrupoDaMesa(campanhaId)).SendAsync("NeblinaAlterada", new { cenaId, coluna, linha, largura, altura, revelar });
+            await Clients.AvisarVisibilidadeAsync(_uof, cena, antes);
         }
 
         /// <summary>Um "olhem aqui": aparece para todos no ponto do mapa (em pixels da imagem) por alguns segundos.</summary>
@@ -158,6 +162,7 @@ namespace Wyvern.Api.Hubs
                 }
             }
 
+            var antes = await AvisosDoMapa.VisiveisAsync(_uof, cena);
             (token.Coluna, token.Linha) = destino;
             if (controla && custo is > 0)
             {
@@ -166,8 +171,9 @@ namespace Wyvern.Api.Hubs
             }
             await _uof.CommitAsync();
 
-            var grupo = token.Oculto ? GrupoDoMestre(campanhaId) : GrupoDaMesa(campanhaId);
-            await Clients.Group(grupo).SendAsync("TokenMovido", new { token.TokenId, token.CenaId, token.Coluna, token.Linha, token.MovimentoGasto, token.MovimentoTurno });
+            // sob a névoa, o jogador só fica sabendo do passo de quem ele enxerga (e quem aparece ou some vem junto)
+            await Clients.AvisarTokenAsync(_uof, cena, antes, token.TokenId, "TokenMovido",
+                new { token.TokenId, token.CenaId, token.Coluna, token.Linha, token.MovimentoGasto, token.MovimentoTurno });
         }
 
         /// <summary>
@@ -188,8 +194,8 @@ namespace Wyvern.Api.Hubs
             token.Rotacao = CenaRegras.Angulo(rotacao);
             await _uof.CommitAsync();
 
-            var grupo = token.Oculto ? GrupoDoMestre(campanhaId) : GrupoDaMesa(campanhaId);
-            await Clients.Group(grupo).SendAsync("TokenGirado", new { token.TokenId, token.CenaId, token.Rotacao });
+            var visiveis = await AvisosDoMapa.VisiveisAsync(_uof, token.Cena);
+            await Clients.AvisarTokenAsync(_uof, token.Cena, visiveis, token.TokenId, "TokenGirado", new { token.TokenId, token.CenaId, token.Rotacao });
         }
     }
 }
